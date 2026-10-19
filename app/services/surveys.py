@@ -16,6 +16,7 @@ from pymongo.errors import DuplicateKeyError
 
 from app.errors import AppError, Conflict, NotFound, ValidationFailed
 from app.logic import survey_state as state
+from app.logic.survey_check import check_survey
 from app.repositories import responses as responses_repo
 from app.repositories import surveys as surveys_repo
 from app.utils import now_utc, parse_object_id, to_mongo_time
@@ -199,6 +200,10 @@ def publish_survey(db: Database, owner_id: ObjectId, survey_id: str) -> dict:
         raise _status_error("发布", required, survey["status"])
     if not survey["questions"]:
         raise AppError(422, "NO_QUESTIONS", "问卷至少需要 1 道题才能发布")
+    # 正常情况下题目每次保存都已检查过；这里再检查一次，防止数据被绕过接口写入
+    check = check_survey(survey["questions"])
+    if not check.ok:
+        raise ValidationFailed(check.errors, "题目设置不合法，无法发布")
     now = now_utc()
     if state.is_expired(survey["settings"].get("deadline"), now):
         raise ValidationFailed([{"field": "deadline", "message": "截止时间已过，请先修改截止时间再发布"}])

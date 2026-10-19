@@ -85,6 +85,7 @@ _PYDANTIC_MESSAGES = {
     "enum": "取值不在允许范围内",
     "literal_error": "取值不在允许范围内",
     "json_invalid": "请求体不是合法的 JSON",
+    "extra_forbidden": "不支持该字段",
     "timezone_aware": "时间必须带时区（如 2026-11-30T23:59:59+08:00 或以 Z 结尾的 UTC 时间）",
 }
 

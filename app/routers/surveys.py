@@ -4,6 +4,7 @@ from pymongo.database import Database
 
 from app.config import get_settings
 from app.logic import survey_state as state
+from app.logic.survey_check import check_survey
 from app.schemas.surveys import SettingsOut, SurveyCreate, SurveyOut, SurveySummary, SurveyUpdate
 from app.security import get_current_user, get_database
 from app.services import surveys as survey_service
@@ -38,7 +39,8 @@ def _common_fields(doc: dict) -> dict:
 
 def survey_out(doc: dict) -> SurveyOut:
     return SurveyOut(**_common_fields(doc), description=doc.get("description", ""),
-                     version=doc["version"], questions=doc["questions"])
+                     version=doc["version"], questions=doc["questions"],
+                     warnings=check_survey(doc["questions"]).warnings)
 
 
 def survey_summary(doc: dict) -> SurveySummary:

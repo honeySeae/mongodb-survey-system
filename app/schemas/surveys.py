@@ -64,6 +64,8 @@ class SurveyOut(CamelModel):
     settings: SettingsOut
     version: int
     questions: list[dict[str, Any]]
+    # 当前题目设置的警告（规则重叠、永远不会命中的规则、永远不会显示的题目），不影响保存和发布
+    warnings: list[dict[str, Any]]
     created_at: datetime
     updated_at: datetime
     published_at: datetime | None

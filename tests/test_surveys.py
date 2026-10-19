@@ -254,7 +254,7 @@ def test_update_draft_all_fields(client, alice):
     assert (u["title"], u["description"]) == ("新标题", "新说明")
     assert u["settings"] == {"allowAnonymous": True, "submissionPolicy": "all",
                              "deadline": "2099-01-01T00:00:00Z"}
-    assert u["updatedAt"] >= s["updatedAt"]
+    assert datetime.fromisoformat(u["updatedAt"]) >= datetime.fromisoformat(s["updatedAt"])
 
 
 def test_update_only_given_fields(client, alice):

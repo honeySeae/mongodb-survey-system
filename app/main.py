@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 from app import db
 from app.db_schema import ensure_schema
 from app.errors import register_error_handlers
-from app.routers import auth, surveys
+from app.routers import auth, questions, surveys
 
 
 @asynccontextmanager
@@ -27,6 +27,7 @@ def create_app() -> FastAPI:
     register_error_handlers(app)
     app.include_router(auth.router)
     app.include_router(surveys.router)
+    app.include_router(questions.router)
 
     @app.get("/api/health", tags=["system"])
     def health():
