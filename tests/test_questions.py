@@ -9,6 +9,7 @@ from bson import ObjectId
 from app.db import SURVEYS
 from app.errors import AppError
 from app.services import questions as question_service
+from tests.builders import as_update, build_fruit_survey
 
 
 # ---------- 工具 ----------
@@ -45,17 +46,6 @@ TEXT = dict(type="text", title="其他建议", validation={"required": False, "m
 
 def question(survey: dict, index: int) -> dict:
     return survey["questions"][index]
-
-
-def as_update(q: dict, **changes) -> dict:
-    """把返回的题目转成修改请求体（保留选项 id）。"""
-    body = {"type": q["type"], "title": q["title"], "validation": q["validation"]}
-    if "options" in q:
-        body["options"] = [{"id": o["id"], "text": o["text"]} for o in q["options"]]
-    if "logic" in q:
-        body["logic"] = q["logic"]
-    body.update(changes)
-    return body
 
 
 # ---------- 添加 ----------
@@ -484,32 +474,10 @@ def test_updated_at_strictly_increases(client, alice, db, monkeypatch):
 
 # ---------- 完整流程：用接口搭建设计文档 3.4 的示例问卷并发布 ----------
 def test_build_design_example_and_publish(client, alice):
-    s = new_survey(client, alice)
-    sid = s["id"]
-    add_ok(client, alice, sid, type="single_choice", title="你喜欢吃水果吗？",
-           options=[{"text": "喜欢"}, {"text": "不喜欢"}], validation={"required": True})
-    add_ok(client, alice, sid, type="multiple_choice", title="你喜欢哪些水果？",
-           options=[{"text": t} for t in ("苹果", "香蕉", "西瓜", "榴莲")],
-           validation={"required": True, "minSelect": 1, "maxSelect": 3})
-    add_ok(client, alice, sid, type="text", title="为什么喜欢榴莲？",
-           validation={"required": False, "minLength": 5, "maxLength": 200})
-    add_ok(client, alice, sid, type="number", title="你每周吃几次水果？",
-           validation={"required": True, "min": 0, "max": 50, "integerOnly": True})
-    s = add_ok(client, alice, sid, type="text", title="其他建议",
-               validation={"required": False, "maxLength": 500})
-    q1, q2, q3, q4, q5 = s["questions"]
-
-    put_ok(client, alice, sid, q1["id"], **as_update(q1, logic={
-        "rules": [{"when": {"op": "eq", "value": q1["options"][1]["id"]}, "goto": q5["id"]}],
-        "defaultNext": None}))
-    put_ok(client, alice, sid, q2["id"], **as_update(q2, logic={
-        "rules": [{"when": {"op": "contains", "value": q2["options"][3]["id"]}, "goto": q3["id"]}],
-        "defaultNext": q4["id"]}))
-    s = put_ok(client, alice, sid, q4["id"], **as_update(q4, logic={
-        "rules": [{"when": {"op": "eq", "value": 0}, "goto": "END"}], "defaultNext": None}))
+    built = build_fruit_survey(client, alice, publish=False)
+    s = built["survey"]
     assert s["warnings"] == []
-
-    resp = client.post(f"/api/surveys/{sid}/publish", headers=alice)
+    resp = client.post(f"/api/surveys/{s['id']}/publish", headers=alice)
     assert resp.status_code == 200
     assert resp.json()["status"] == "published"
     assert resp.json()["questions"] == s["questions"]

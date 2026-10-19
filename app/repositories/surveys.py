@@ -15,6 +15,11 @@ def insert(db: Database, doc: dict) -> dict:
     return doc
 
 
+def find_by_short_code(db: Database, short_code: str) -> dict | None:
+    """填写者通过链接访问问卷（命中 shortCode_unique 索引）。不带 ownerId 条件，由调用方判断状态。"""
+    return db[SURVEYS].find_one({"shortCode": short_code})
+
+
 def find_owned(db: Database, survey_id: ObjectId, owner_id: ObjectId) -> dict | None:
     return db[SURVEYS].find_one({"_id": survey_id, "ownerId": owner_id})
 
