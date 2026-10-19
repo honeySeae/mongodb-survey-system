@@ -3,16 +3,32 @@
 启动：uvicorn app.main:app --reload
 后续步骤会在这里挂载各模块的路由（auth、surveys、fill、stats）和静态页面。
 """
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
+
+from app import db
+from app.db_schema import ensure_schema
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 启动时确保集合、校验规则和索引就绪（幂等）；MongoDB 不可用时直接启动失败，便于发现问题
+    ensure_schema(db.get_db())
+    yield
+    db.close_client()
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="在线问卷系统", version="0.1.0")
+    app = FastAPI(title="在线问卷系统", version="0.1.0", lifespan=lifespan)
 
     @app.get("/api/health", tags=["system"])
-    def health() -> dict:
-        """健康检查：服务是否在运行。"""
-        return {"status": "ok"}
+    def health():
+        """健康检查：服务是否在运行、数据库是否可连接。"""
+        if db.ping():
+            return {"status": "ok", "database": "ok"}
+        return JSONResponse(status_code=503, content={"status": "error", "database": "unavailable"})
 
     return app
 

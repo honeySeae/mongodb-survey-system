@@ -1,2 +1,4 @@
 # 统一使用 LF 换行，避免 Windows / Mac 之间出现无意义的差异
 * text=auto eol=lf
+# Windows 批处理文件需要 CRLF 换行
+*.bat text eol=crlf

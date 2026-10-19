@@ -100,3 +100,24 @@
   - 核对设计文档：第 1–18 条决定已在第 7 条记录时写入 `docs/DATABASE_DESIGN.md`，并已随第一步提交（`74dba40`），列出改动位置供开发者确认。
 - 是否修改：
 - 修改内容 / 本人决定：本人要求加入“按端口或 PID 结束进程”的规则（针对第 8 条中 AI 的失误）；本人核实了 httpx2 的替换。
+
+### 10. 第二步：数据库连接与索引；MongoDB 改为手动启动；部署可移植性（2026-10-19）
+- 工具：Claude Code
+- 提示词：开发者确认设计文档改动；决定不注册 Windows 服务，改用 `C:\data\mongod.cfg` 前台手动启动，要求写双击启动脚本 `start_mongo.bat`，README 写明每次开发前运行并保持窗口打开，服务方式保留为可选；重申只在本地 commit、不推送；说明项目最后部署到阿里云 Linux 服务器，要求代码中不写死本机路径、localhost 和 Windows 专用写法，问卷链接前缀做成 `.env` 配置项；然后开始第二步。
+- AI 产出：
+  - `scripts/start_mongo.bat`：双击前台启动 mongod（PATH 中找不到时到默认安装目录查找；可传入配置文件路径；启动失败时给出提示）。
+  - `CLAUDE.md` 第 2 节新增部署可移植性规则；`.env` / `.env.example` 新增 `PUBLIC_BASE_URL`。
+  - `app/config.py`：`MONGO_URI`、`JWT_SECRET`、`PUBLIC_BASE_URL` 不再有代码内默认值，必须由 `.env` 或环境变量提供；`.env` 路径按项目根目录定位（与启动目录无关）；`PUBLIC_BASE_URL` 自动去掉结尾 `/`。为本机 `.env` 生成了随机 `JWT_SECRET`（`.env` 不提交）。
+  - `app/db.py`：全局共享 MongoClient（`tz_aware=True`，5 秒连接超时）、集合名常量、`ping()`。
+  - `app/db_schema.py`：三个集合的 `$jsonSchema`（只约束核心字段的必填、类型、枚举；不禁止额外字段；`validationLevel: moderate`）和第 5 节全部索引（显式命名，部分唯一索引 `surveyId_respondentId_latest_unique`）；`ensure_schema()` 幂等，已有集合用 `collMod` 更新规则。
+  - `scripts/init_db.py`：手动初始化脚本；应用启动时（lifespan）也会自动执行，MongoDB 不可用时启动失败。
+  - `/api/health` 增加数据库状态，数据库不可用时返回 503。
+  - 测试：`conftest.py` 整轮测试前重建测试库、结束后删除，每个测试后清空集合；`tests/test_db.py` 共 23 个用例：合法文档可写入；10 种不合法文档被 `$jsonSchema` 拒绝；额外字段（模拟第二阶段新增）可写入；索引的字段、唯一性、部分过滤条件与设计一致，且已删除的普通索引不存在；用户名和 shortCode 唯一；同一人同一问卷只能有一份 `isLatest: true`，历史答卷可多份；6.2 的三步写入顺序在索引约束下可完成；“是否填写过”查询命中部分唯一索引（explain 验证）；`ensure_schema` 重复执行无副作用。
+  - README：MongoDB 部分改为“首次准备 → 每次开发前双击 start_mongo.bat（默认）→ 可选注册服务 → Mac → 初始化数据库”。
+  - 验证：MongoDB 8.3.11 已用 `C:\data\mongod.cfg` 启动并 ping 成功；`pytest` 26 个用例全部通过；`python -m scripts.init_db` 在开发库 `survey_dev` 上建好全部索引；检查 `app/`、`tests/`、`scripts/*.py` 中无写死的 localhost 或 Windows 路径。
+- AI 出错（AI 自己通过测试/检查发现并修正）：
+  - `start_mongo.bat` 初版用中文提示并 `chcp 65001`，实际运行时 cmd 把部分 UTF-8 中文误解析成命令而报错；改为纯英文 ASCII 提示。
+  - 生成 README 时 Python 字符串转义错误，`\to`、`\bin` 被变成制表符和退格符；检查后修正。
+  - 第一步的健康检查测试因响应新增 `database` 字段而失败，属于预期变化，已更新测试。
+- 是否修改：
+- 修改内容 / 本人决定：本人决定不注册 Windows 服务、改用手动启动脚本；本人提出部署到阿里云 Linux，要求代码可移植、问卷链接前缀可配置。
