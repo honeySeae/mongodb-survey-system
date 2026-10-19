@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>登录 · 问卷</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <main class="page narrow">
+    <div class="paper">
+      <div class="banner">
+        <h1>在线问卷</h1>
+        <div class="desc">登录后创建问卷、填写问卷、查看统计</div>
+      </div>
+      <div class="tabs" role="tablist">
+        <button type="button" id="tab-login" class="active" role="tab">登录</button>
+        <button type="button" id="tab-register" role="tab">注册</button>
+      </div>
+      <div class="paper-body">
+        <div id="message"></div>
+        <form id="form" novalidate>
+          <div class="field">
+            <label for="username">用户名</label>
+            <input class="input" id="username" name="username" autocomplete="username" required>
+            <div class="help" id="username-help" hidden>3–20 个字符，只能包含字母、数字和下划线，不区分大小写</div>
+            <div class="field-error" id="username-error"></div>
+          </div>
+          <div class="field">
+            <label for="password">密码</label>
+            <input class="input" id="password" name="password" type="password" autocomplete="current-password" required>
+            <div class="help" id="password-help" hidden>至少 8 个字符</div>
+            <div class="field-error" id="password-error"></div>
+          </div>
+          <button class="btn block" type="submit" id="submit">登录</button>
+        </form>
+      </div>
+    </div>
+    <p class="center muted" id="next-hint" hidden></p>
+  </main>
+  <script type="module" src="/static/js/login.js"></script>
+</body>
+</html>

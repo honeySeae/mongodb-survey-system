@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>我的问卷 · 问卷</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <main class="page">
+    <div class="paper">
+      <div class="banner">
+        <h1>我的问卷</h1>
+        <div class="desc">创建问卷、编辑题目、发布后把链接发给填写者</div>
+      </div>
+      <div class="paper-body">
+        <div class="actions">
+          <button class="btn" type="button" id="new-btn">＋ 新建问卷</button>
+        </div>
+        <form id="new-form" class="mt" hidden novalidate>
+          <div id="new-message"></div>
+          <div class="field">
+            <label for="title">问卷标题</label>
+            <input class="input" id="title" maxlength="100" required>
+          </div>
+          <div class="field">
+            <label for="description">问卷说明（选填）</label>
+            <textarea class="input" id="description" rows="2" maxlength="1000"></textarea>
+          </div>
+          <div class="field">
+            <span class="field-label">提交策略</span>
+            <label class="check"><input type="radio" name="policy" value="once" checked> 每人只能填一次</label><br>
+            <label class="check"><input type="radio" name="policy" value="latest"> 可以重填，以最后一次为准（如报名表）</label><br>
+            <label class="check"><input type="radio" name="policy" value="all"> 可多次填写，每次都算（如每日打卡）</label>
+            <div class="help">发布后不能修改</div>
+          </div>
+          <div class="field">
+            <label class="check"><input type="checkbox" id="anonymous"> 匿名问卷（统计和答卷中不显示填写人）</label>
+            <div class="help">填写者仍需登录；发布后不能修改</div>
+          </div>
+          <div class="field">
+            <label for="deadline">截止时间（选填，不填表示不限）</label>
+            <input class="input" id="deadline" type="datetime-local">
+          </div>
+          <div class="actions">
+            <button class="btn" type="submit" id="create-btn">创建并编辑题目</button>
+            <button class="btn ghost" type="button" id="cancel-btn">取消</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="paper" id="list-paper">
+      <div id="list"><div class="empty">加载中…</div></div>
+    </div>
+  </main>
+  <script type="module" src="/static/js/surveys.js"></script>
+</body>
+</html>
