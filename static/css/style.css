@@ -286,6 +286,17 @@ select:focus { border-color: var(--primary); }
 .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 24px; }
 .settings-grid .full { grid-column: 1 / -1; }
 
+/* ---------- 填写页 ---------- */
+.skip-btn { margin: 4px 0 0 1.9em; font-size: 13px; }
+.submit-bar { padding: 18px 36px 26px; border-top: 1px dashed var(--rule); display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.submit-bar .btn { padding: 6px 40px; font-size: 15px; }
+.submit-bar #submit-message:empty { display: none; }
+.thanks { padding: 36px 36px 40px; text-align: center; }
+.thanks-mark { width: 52px; height: 52px; margin: 0 auto 10px; border: 2px solid var(--primary); border-radius: 50%;
+               color: var(--primary); font-size: 28px; line-height: 48px; background: var(--paper); }
+.thanks h2 { font-size: 22px; margin-bottom: 6px; }
+.center-actions { justify-content: center; margin-top: 16px; }
+
 /* ---------- 进度条（填写页） ---------- */
 .progress { position: sticky; top: 0; z-index: 10; height: 4px; background: var(--rule); }
 .progress > div { height: 100%; background: var(--primary); transition: width .3s ease; }
@@ -319,4 +330,6 @@ select:focus { border-color: var(--primary); }
   .editor-row { grid-template-columns: 1fr; gap: 2px; }
   .add-bar { padding-left: 16px; padding-right: 16px; }
   .settings-grid { grid-template-columns: 1fr; }
+  .skip-btn { margin-left: 0; }
+  .submit-bar, .thanks { padding-left: 16px; padding-right: 16px; }
 }

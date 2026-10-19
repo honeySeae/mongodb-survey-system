@@ -8,13 +8,23 @@
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-  <!-- 占位页面：完整功能在 9c 实现 -->
+  <div class="progress" id="progress" hidden role="progressbar" aria-label="填写进度" aria-valuemin="0" aria-valuemax="100"><div id="progress-bar"></div></div>
   <main class="page">
-    <div class="paper">
-      <div class="paper-head"><h1 id="title">填写问卷</h1></div>
-      <div class="paper-body"><div class="notice info" id="info">该页面将在 9c 实现。</div></div>
+    <div class="paper" id="paper">
+      <div class="paper-head">
+        <h1 id="title">加载中…</h1>
+        <div class="desc" id="description" hidden></div>
+        <div class="meta" id="meta"></div>
+      </div>
+      <div class="paper-body msg-slot" id="notices"></div>
+      <div id="questions"></div>
+      <div class="submit-bar" id="submit-bar" hidden>
+        <div id="submit-message"></div>
+        <button class="btn" type="button" id="submit-btn">提交</button>
+        <span class="muted" id="submit-hint"></span>
+      </div>
     </div>
   </main>
-  <script type="module" src="/static/js/placeholder.js" data-page="fill"></script>
+  <script type="module" src="/static/js/fill.js"></script>
 </body>
 </html>

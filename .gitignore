@@ -15,3 +15,6 @@ venv/
 .idea/
 .DS_Store
 Thumbs.db
+
+# 界面测试截图（每次运行重新生成；整理文档时挑选复制到 docs/）
+tests/ui/screenshots/

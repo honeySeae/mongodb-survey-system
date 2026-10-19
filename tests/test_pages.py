@@ -19,7 +19,7 @@ STATIC = Path(__file__).resolve().parent.parent / "static"
     ("/surveys", "surveys.js"),
     ("/surveys/abc/edit", "<title>编辑问卷"),
     ("/surveys/abc/stats", "<title>统计结果"),
-    ("/survey/a8Kx2p", "<title>填写问卷"),
+    ("/survey/a8Kx2p", "fill.js"),
 ])
 def test_pages_served_as_html(client, path, marker):
     resp = client.get(path)

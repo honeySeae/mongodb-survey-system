@@ -20,8 +20,11 @@ copy .env.example .env          # Mac / Linux：cp .env.example .env
 uvicorn app.main:app --reload
 # 访问 http://127.0.0.1:8000/api/health ，返回 {"status":"ok","database":"ok"}
 
-# 5. 运行测试（自动使用独立测试库 survey_test）
+# 5. 运行测试（自动使用独立测试库 survey_test；界面测试另用 survey_ui_test）
 pytest
+# 界面测试（tests/ui，用无界面 Chrome 操作真实页面）需要 Node.js 22+ 和 Chrome/Edge，
+# 没有时自动跳过；也可以只跑后端测试：pytest -m "not ui"
+# 界面测试的截图和步骤记录在 tests/ui/screenshots/<场景>/
 ```
 
 > **本地访问请用 `http://127.0.0.1:8000`，不要用 `localhost`。** Windows 会把 `localhost` 先解析为 IPv6 地址 `::1`，而 uvicorn 默认只监听 IPv4 的 `127.0.0.1`，每个请求要先等 IPv6 连接失败（约 2 秒）再回退（实测 `localhost` 每次约 2 秒，`127.0.0.1` 约 0.002 秒）。部署到 Linux 服务器时使用服务器的域名或 IP，不受影响。
