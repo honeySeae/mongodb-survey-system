@@ -128,6 +128,22 @@ export function linkBox(url) {
   return el("div", { class: "link-box" }, input, btn);
 }
 
+/**
+ * 让容器内的 .option（整行可点的单选/多选行）在选中时高亮：根据其中 input 的选中状态切换 is-checked。
+ * 填写页、编辑页的题目选项也使用同一机制。
+ */
+export function bindOptionHighlight(container) {
+  const sync = () => {
+    container.querySelectorAll(".option").forEach((row) => {
+      const input = row.querySelector("input");
+      row.classList.toggle("is-checked", Boolean(input && input.checked));
+    });
+  };
+  container.addEventListener("change", sync);
+  sync();
+  return sync;
+}
+
 /** 读取当前地址中的查询参数。 */
 export function queryParam(name) {
   return new URLSearchParams(location.search).get(name);

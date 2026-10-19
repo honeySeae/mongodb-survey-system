@@ -27,16 +27,26 @@
             <label for="description">问卷说明（选填）</label>
             <textarea class="input" id="description" rows="2" maxlength="1000"></textarea>
           </div>
-          <div class="field">
-            <span class="field-label">提交策略</span>
-            <label class="check"><input type="radio" name="policy" value="once" checked> 每人只能填一次</label><br>
-            <label class="check"><input type="radio" name="policy" value="latest"> 可以重填，以最后一次为准（如报名表）</label><br>
-            <label class="check"><input type="radio" name="policy" value="all"> 可多次填写，每次都算（如每日打卡）</label>
-            <div class="help">发布后不能修改</div>
+          <div class="field" id="policy-group">
+            <span class="field-label">提交策略（发布后不能修改）</span>
+            <label class="option radio is-checked">
+              <input type="radio" name="policy" value="once" checked><span class="mark"></span>
+              <span>每人只能填一次 <span class="muted">普通调查</span></span>
+            </label>
+            <label class="option radio">
+              <input type="radio" name="policy" value="latest"><span class="mark"></span>
+              <span>可以重填，以最后一次为准 <span class="muted">如报名表</span></span>
+            </label>
+            <label class="option radio">
+              <input type="radio" name="policy" value="all"><span class="mark"></span>
+              <span>可多次填写，每次都算 <span class="muted">如每日打卡</span></span>
+            </label>
           </div>
-          <div class="field">
-            <label class="check"><input type="checkbox" id="anonymous"> 匿名问卷（统计和答卷中不显示填写人）</label>
-            <div class="help">填写者仍需登录；发布后不能修改</div>
+          <div class="field" id="anonymous-group">
+            <label class="option checkbox">
+              <input type="checkbox" id="anonymous"><span class="mark"></span>
+              <span>匿名问卷 <span class="muted">统计和答卷中不显示填写人；填写者仍需登录；发布后不能修改</span></span>
+            </label>
           </div>
           <div class="field">
             <label for="deadline">截止时间（选填，不填表示不限）</label>

@@ -1,6 +1,6 @@
 // 我的问卷：列表、新建。
 import { api, requireLogin } from "./api.js";
-import { el, errorNotice, formatTime, fromLocalInput, linkBox, renderTopbar, statusBadge } from "./layout.js";
+import { bindOptionHighlight, el, errorNotice, formatTime, fromLocalInput, linkBox, renderTopbar, statusBadge } from "./layout.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -8,6 +8,8 @@ if (requireLogin()) {
   renderTopbar("surveys");
   loadList();
 }
+bindOptionHighlight($("policy-group"));
+bindOptionHighlight($("anonymous-group"));
 
 // ---------- 新建 ----------
 $("new-btn").addEventListener("click", () => {
