@@ -45,11 +45,18 @@ class Unauthorized(AppError):
         super().__init__(401, code, message, headers={"WWW-Authenticate": "Bearer"})
 
 
-class Conflict(AppError):
-    """与现有数据冲突（409）。"""
+class NotFound(AppError):
+    """资源不存在（404）。也用于访问别人的资源，不暴露其是否存在。"""
 
     def __init__(self, code: str, message: str):
-        super().__init__(409, code, message)
+        super().__init__(404, code, message)
+
+
+class Conflict(AppError):
+    """与当前状态或现有数据冲突（409）。"""
+
+    def __init__(self, code: str, message: str, errors: list[dict] | None = None):
+        super().__init__(409, code, message, errors)
 
 
 def error_body(code: str, message: str, errors: list[dict] | None = None) -> dict:
@@ -78,6 +85,7 @@ _PYDANTIC_MESSAGES = {
     "enum": "取值不在允许范围内",
     "literal_error": "取值不在允许范围内",
     "json_invalid": "请求体不是合法的 JSON",
+    "timezone_aware": "时间必须带时区（如 2026-11-30T23:59:59+08:00 或以 Z 结尾的 UTC 时间）",
 }
 
 
@@ -107,6 +115,8 @@ def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(StarletteHTTPException)
     async def _http_error(request: Request, exc: StarletteHTTPException):
         code, message = {
+            # 例如请求体不是合法的 UTF-8，Starlette 在解析阶段就会返回 400
+            400: ("BAD_REQUEST", "请求体无法解析，请使用 UTF-8 编码的 JSON"),
             404: ("NOT_FOUND", "请求的资源不存在"),
             405: ("METHOD_NOT_ALLOWED", "不支持该请求方法"),
         }.get(exc.status_code, ("HTTP_ERROR", str(exc.detail)))

@@ -250,6 +250,16 @@ def test_invalid_json_uses_unified_error_format(client):
     assert resp.json()["errors"][0]["message"] == "请求体不是合法的 JSON"
 
 
+def test_non_utf8_body_uses_unified_error_format(client):
+    """非 UTF-8 编码的请求体（如 GBK 编码的中文）返回统一格式的中文提示。"""
+    body = '{"username": "张三", "password": "password123"}'.encode("gbk")
+    resp = client.post("/api/auth/register", content=body,
+                       headers={"Content-Type": "application/json"})
+    assert resp.status_code == 400
+    assert resp.json() == {"code": "BAD_REQUEST",
+                           "message": "请求体无法解析，请使用 UTF-8 编码的 JSON"}
+
+
 def test_unknown_route_uses_unified_error_format(client):
     resp = client.get("/api/no-such-route")
     assert resp.status_code == 404
