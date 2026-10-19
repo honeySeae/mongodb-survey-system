@@ -31,6 +31,36 @@ OPERATORS: dict[str, dict[str, str]] = {
     },
 }
 
+# 题型 -> {运算符: 判断函数(答案, 条件值) -> bool}；答案已经过 validation 检查和规范化
+# （单选为选项 id，多选为选项 id 数组，数字为 int / float）。键必须与 OPERATORS 一致（有测试保证）
+EVALUATORS = {
+    "single_choice": {
+        "eq": lambda answer, value: answer == value,
+        "in": lambda answer, value: answer in value,
+    },
+    "multiple_choice": {
+        "contains": lambda answer, value: value in answer,
+        "containsAny": lambda answer, value: bool(set(answer) & set(value)),
+        "containsAll": lambda answer, value: set(value) <= set(answer),
+        "equals": lambda answer, value: set(answer) == set(value),
+    },
+    "number": {
+        "eq": lambda answer, value: answer == value,
+        "ne": lambda answer, value: answer != value,
+        "gt": lambda answer, value: answer > value,
+        "gte": lambda answer, value: answer >= value,
+        "lt": lambda answer, value: answer < value,
+        "lte": lambda answer, value: answer <= value,
+        "between": lambda answer, value: value[0] <= answer <= value[1],
+    },
+}
+
+
+def evaluate(question_type: str, op: str, value, answer) -> bool:
+    """跳转条件是否成立。调用前题目已通过保存时的检查、答案已通过校验。"""
+    return EVALUATORS[question_type][op](answer, value)
+
+
 VALUE_FORMAT_NAMES = {
     OPTION: "本题的一个选项 id",
     OPTION_LIST: "本题选项 id 组成的数组",
