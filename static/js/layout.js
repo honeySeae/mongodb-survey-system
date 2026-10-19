@@ -75,20 +75,6 @@ export function formatTime(iso) {
                                      hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
-/** ISO 时间 -> <input type="datetime-local"> 的值（本地时间）。 */
-export function toLocalInput(iso) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  const pad = (n) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-/** <input type="datetime-local"> 的值（本地时间）-> 带时区的 ISO（后端要求带时区）。 */
-export function fromLocalInput(value) {
-  if (!value) return null;
-  return new Date(value).toISOString();
-}
-
 export const POLICY_LABELS = {
   once: "每人只能填一次",
   latest: "可以重填，以最后一次为准",

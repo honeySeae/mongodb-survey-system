@@ -1,6 +1,7 @@
 // 我的问卷：列表、新建。
 import { api, requireLogin } from "./api.js";
-import { bindOptionHighlight, el, errorNotice, formatTime, fromLocalInput, linkBox, renderTopbar, statusBadge } from "./layout.js";
+import { createDeadlinePicker } from "./deadline.js";
+import { bindOptionHighlight, el, errorNotice, formatTime, linkBox, renderTopbar, statusBadge } from "./layout.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -10,6 +11,8 @@ if (requireLogin()) {
 }
 bindOptionHighlight($("policy-group"));
 bindOptionHighlight($("anonymous-group"));
+const deadline = createDeadlinePicker();
+$("deadline-slot").append(deadline.element);
 
 // ---------- 新建 ----------
 $("new-btn").addEventListener("click", () => {
@@ -21,6 +24,7 @@ $("cancel-btn").addEventListener("click", () => {
   $("new-form").hidden = true;
   $("new-btn").hidden = false;
   $("new-message").replaceChildren();
+  deadline.setValue(null);
 });
 
 $("new-form").addEventListener("submit", async (event) => {
@@ -31,7 +35,7 @@ $("new-form").addEventListener("submit", async (event) => {
     description: $("description").value,
     submissionPolicy: document.querySelector('input[name="policy"]:checked').value,
     allowAnonymous: $("anonymous").checked,
-    deadline: fromLocalInput($("deadline").value),
+    deadline: deadline.getValue(),   // 带时区的 ISO 或 null
   };
   $("create-btn").disabled = true;
   try {
