@@ -215,3 +215,23 @@ def test_has_answered_query_uses_partial_index(db):
     plan = db[RESPONSES].find(
         {"surveyId": survey_id, "respondentId": user_id, "isLatest": True}).explain()
     assert "surveyId_respondentId_latest_unique" in str(plan["queryPlanner"]["winningPlan"])
+
+
+# ---------- 整数范围（设计文档 6.6） ----------
+INT64_MIN, INT64_MAX = -(2 ** 63), 2 ** 63 - 1
+
+
+@pytest.mark.parametrize("value", [INT64_MIN, INT64_MAX, 13812345678])
+def test_int64_boundary_values_can_be_stored(db, value):
+    """64 位整数范围内的值（含两端边界、11 位手机号）能正常存储并原样读回。"""
+    rid = db[RESPONSES].insert_one(
+        make_response(answers=[{"questionId": "q_num001", "value": value}])).inserted_id
+    assert db[RESPONSES].find_one({"_id": rid})["answers"][0]["value"] == value
+
+
+@pytest.mark.parametrize("value", [INT64_MAX + 1, INT64_MIN - 1, 10 ** 20])
+def test_int_beyond_int64_cannot_be_stored(db, value):
+    """超出 64 位范围的整数无法写入 MongoDB——这就是 6.6 要求应用层提前按校验错误拒绝的原因。
+    （应用层校验的测试在第六步“校验引擎”中补充。）"""
+    with pytest.raises(OverflowError):
+        db[RESPONSES].insert_one(make_response(answers=[{"questionId": "q_num001", "value": value}]))
