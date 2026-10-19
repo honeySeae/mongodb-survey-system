@@ -1,0 +1,2 @@
+# 统一使用 LF 换行，避免 Windows / Mac 之间出现无意义的差异
+* text=auto eol=lf
