@@ -10,6 +10,8 @@ from fastapi.responses import JSONResponse
 
 from app import db
 from app.db_schema import ensure_schema
+from app.errors import register_error_handlers
+from app.routers import auth
 
 
 @asynccontextmanager
@@ -22,6 +24,8 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     app = FastAPI(title="在线问卷系统", version="0.1.0", lifespan=lifespan)
+    register_error_handlers(app)
+    app.include_router(auth.router)
 
     @app.get("/api/health", tags=["system"])
     def health():

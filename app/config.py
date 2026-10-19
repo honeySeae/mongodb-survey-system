@@ -27,8 +27,19 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60 * 24
 
+    # bcrypt 计算强度（2 的幂次轮数）。默认 12；测试中调低以加快速度
+    bcrypt_rounds: int = 12
+
     # 对外访问地址，用于生成问卷链接：<PUBLIC_BASE_URL>/survey/<shortCode>
     public_base_url: str
+
+    @field_validator("jwt_secret")
+    @classmethod
+    def _secret_long_enough(cls, v: str) -> str:
+        # HS256 建议密钥至少 32 字节，过短的密钥容易被暴力破解
+        if len(v.encode("utf-8")) < 32:
+            raise ValueError("JWT_SECRET 至少 32 个字符，请在 .env 中设置一段足够长的随机字符串")
+        return v
 
     @field_validator("public_base_url")
     @classmethod
