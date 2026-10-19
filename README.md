@@ -18,11 +18,13 @@ copy .env.example .env          # Mac / Linux：cp .env.example .env
 
 # 4. 启动服务
 uvicorn app.main:app --reload
-# 访问 http://localhost:8000/api/health ，返回 {"status":"ok","database":"ok"}
+# 访问 http://127.0.0.1:8000/api/health ，返回 {"status":"ok","database":"ok"}
 
 # 5. 运行测试（自动使用独立测试库 survey_test）
 pytest
 ```
+
+> **本地访问请用 `http://127.0.0.1:8000`，不要用 `localhost`。** Windows 会把 `localhost` 先解析为 IPv6 地址 `::1`，而 uvicorn 默认只监听 IPv4 的 `127.0.0.1`，每个请求要先等 IPv6 连接失败（约 2 秒）再回退（实测 `localhost` 每次约 2 秒，`127.0.0.1` 约 0.002 秒）。部署到 Linux 服务器时使用服务器的域名或 IP，不受影响。
 
 ## MongoDB 安装与启动
 
