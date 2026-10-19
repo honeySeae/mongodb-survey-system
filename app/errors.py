@@ -87,6 +87,8 @@ _PYDANTIC_MESSAGES = {
     "json_invalid": "请求体不是合法的 JSON",
     "extra_forbidden": "不支持该字段",
     "too_long": "数量超出上限",
+    "greater_than_equal": "不能小于 {ge}",
+    "less_than_equal": "不能大于 {le}",
     "timezone_aware": "时间必须带时区（如 2026-11-30T23:59:59+08:00 或以 Z 结尾的 UTC 时间）",
 }
 
@@ -105,8 +107,12 @@ def _validation_item(e: dict) -> dict:
         if len(loc) > 1 and isinstance(loc[1], int):
             message += f"（第 {loc[1] + 1} 个字符附近）"
         return {"field": "body", "message": message}
-    return {"field": _field_name(loc),
-            "message": _PYDANTIC_MESSAGES.get(e.get("type"), "格式不正确")}
+    message = _PYDANTIC_MESSAGES.get(e.get("type"), "格式不正确")
+    try:
+        message = message.format(**(e.get("ctx") or {}))  # 如“不能大于 {le}”
+    except (KeyError, IndexError):
+        pass
+    return {"field": _field_name(loc), "message": message}
 
 
 def register_error_handlers(app: FastAPI) -> None:
