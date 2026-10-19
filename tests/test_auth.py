@@ -246,8 +246,20 @@ def test_invalid_json_uses_unified_error_format(client):
     resp = client.post("/api/auth/register", content="{not json",
                        headers={"Content-Type": "application/json"})
     assert resp.status_code == 422
-    assert resp.json()["code"] == "VALIDATION_ERROR"
-    assert resp.json()["errors"][0]["message"] == "请求体不是合法的 JSON"
+    assert resp.json() == {
+        "code": "VALIDATION_ERROR", "message": "提交内容不合法",
+        # 出错位置是第 2 个字符 n；field 不是字符下标，避免被误解为字段名
+        "errors": [{"field": "body", "message": "请求体不是合法的 JSON（第 2 个字符附近）"}],
+    }
+
+
+def test_invalid_json_position_on_later_line(client):
+    body = '{"username": "alice",\n "password": }'
+    resp = client.post("/api/auth/register", content=body,
+                       headers={"Content-Type": "application/json"})
+    pos = body.index("}") + 1  # 第 36 个字符：缺少值的位置
+    assert resp.json()["errors"] == [
+        {"field": "body", "message": f"请求体不是合法的 JSON（第 {pos} 个字符附近）"}]
 
 
 def test_non_utf8_body_uses_unified_error_format(client):

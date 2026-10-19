@@ -95,6 +95,18 @@ def _field_name(loc: tuple) -> str:
     return ".".join(parts) or "body"
 
 
+def _validation_item(e: dict) -> dict:
+    loc = tuple(e.get("loc", ()))
+    if e.get("type") == "json_invalid":
+        # 此时 loc 为 ("body", 出错的字符下标)，下标不是字段名，放进提示文字里（下标从 0 开始，提示从 1 开始）
+        message = "请求体不是合法的 JSON"
+        if len(loc) > 1 and isinstance(loc[1], int):
+            message += f"（第 {loc[1] + 1} 个字符附近）"
+        return {"field": "body", "message": message}
+    return {"field": _field_name(loc),
+            "message": _PYDANTIC_MESSAGES.get(e.get("type"), "格式不正确")}
+
+
 def register_error_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def _app_error(request: Request, exc: AppError):
@@ -104,11 +116,7 @@ def register_error_handlers(app: FastAPI) -> None:
 
     @app.exception_handler(RequestValidationError)
     async def _request_validation(request: Request, exc: RequestValidationError):
-        errors = [
-            {"field": _field_name(tuple(e.get("loc", ()))),
-             "message": _PYDANTIC_MESSAGES.get(e.get("type"), "格式不正确")}
-            for e in exc.errors()
-        ]
+        errors = [_validation_item(e) for e in exc.errors()]
         return JSONResponse(status_code=422,
                             content=error_body("VALIDATION_ERROR", "提交内容不合法", errors))
 
