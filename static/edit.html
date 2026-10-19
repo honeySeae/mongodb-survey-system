@@ -4,16 +4,72 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>编辑问卷 · 问卷</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-  <!-- 占位页面：完整功能在 9b 实现 -->
   <main class="page">
-    <div class="paper">
-      <div class="paper-head"><h1 id="title">编辑问卷</h1></div>
-      <div class="paper-body"><div class="notice info" id="info">该页面将在 9b 实现。</div></div>
+    <!-- 第一张纸：问卷设置、状态与发布 -->
+    <div class="paper" id="settings-paper">
+      <div class="paper-head">
+        <div class="head-row">
+          <div>
+            <h1 id="survey-title">加载中…</h1>
+            <div class="meta" id="survey-meta"></div>
+          </div>
+          <div class="actions" id="status-actions"></div>
+        </div>
+      </div>
+      <div class="paper-body">
+        <div id="status-message"></div>
+        <div id="link-slot"></div>
+        <form id="settings-form" novalidate>
+          <div id="settings-message"></div>
+          <div class="settings-grid">
+            <div class="field full">
+              <label for="s-title">问卷标题</label>
+              <input class="input" id="s-title" maxlength="100" data-field="title">
+            </div>
+            <div class="field full">
+              <label for="s-description">问卷说明（选填）</label>
+              <textarea class="input" id="s-description" rows="2" maxlength="1000" data-field="description"></textarea>
+            </div>
+            <div class="field" id="s-policy-group" data-field="submissionPolicy">
+              <span class="field-label">提交策略</span>
+              <label class="option radio"><input type="radio" name="s-policy" value="once"><span class="mark"></span><span>每人只能填一次</span></label>
+              <label class="option radio"><input type="radio" name="s-policy" value="latest"><span class="mark"></span><span>可以重填，以最后一次为准</span></label>
+              <label class="option radio"><input type="radio" name="s-policy" value="all"><span class="mark"></span><span>可多次填写，每次都算</span></label>
+            </div>
+            <div class="field">
+              <span class="field-label">匿名</span>
+              <div id="s-anonymous-group" data-field="allowAnonymous">
+                <label class="option checkbox"><input type="checkbox" id="s-anonymous"><span class="mark"></span><span>匿名问卷</span></label>
+              </div>
+              <span class="field-label mt">截止时间</span>
+              <div id="s-deadline-slot" data-field="deadline"></div>
+            </div>
+          </div>
+          <div class="help" id="settings-lock-hint" hidden></div>
+          <div class="actions mt">
+            <button class="btn ghost" type="submit" id="settings-save">保存设置</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 第二张纸：题目（所见即所得，与填写者看到的一致） -->
+    <div class="paper" id="questions-paper">
+      <div class="paper-head">
+        <h1 id="q-paper-title"></h1>
+        <div class="desc" id="q-paper-desc"></div>
+      </div>
+      <div class="paper-body msg-slot" id="questions-message"></div>
+      <div id="questions"></div>
+      <div class="add-bar" id="add-bar">
+        <span class="muted">添加题目：</span>
+      </div>
     </div>
   </main>
-  <script type="module" src="/static/js/placeholder.js" data-page="edit"></script>
+  <script type="module" src="/static/js/edit.js"></script>
 </body>
 </html>

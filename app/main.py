@@ -21,6 +21,7 @@ from app.routers import auth, fill, meta, pages, questions, stats, surveys
 mimetypes.add_type("text/javascript", ".js")
 mimetypes.add_type("text/javascript", ".mjs")
 mimetypes.add_type("text/css", ".css")
+mimetypes.add_type("image/svg+xml", ".svg")
 
 
 @asynccontextmanager
