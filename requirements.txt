@@ -11,3 +11,7 @@ python-dotenv==1.2.4
 # 测试依赖
 pytest==9.1.1
 httpx2==2.14.0
+
+# 代码覆盖率（测试依赖）
+pytest-cov==7.1.0
+coverage==7.16.2

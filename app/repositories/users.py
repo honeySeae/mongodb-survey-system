@@ -20,8 +20,3 @@ def find_by_username(db: Database, username: str) -> dict | None:
 def find_by_id(db: Database, user_id: ObjectId) -> dict | None:
     return db[USERS].find_one({"_id": user_id})
 
-
-def find_usernames(db: Database, user_ids: list[ObjectId]) -> dict[ObjectId, str]:
-    """批量查询用户名（之后答卷列表、统计中显示填写人时使用）。"""
-    cursor = db[USERS].find({"_id": {"$in": list(user_ids)}}, {"username": 1})
-    return {u["_id"]: u["username"] for u in cursor}
