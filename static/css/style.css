@@ -297,16 +297,35 @@ select:focus { border-color: var(--primary); }
 .thanks h2 { font-size: 22px; margin-bottom: 6px; }
 .center-actions { justify-content: center; margin-top: 16px; }
 
+/* ---------- 统计页 ---------- */
+.stat-q .q-hint { margin-bottom: 8px; }
+.stat-average { margin-bottom: 8px; }
+.stat-average b { font-family: var(--font-serif); font-size: 20px; color: var(--primary); }
+.stat-items { display: flex; flex-direction: column; }
+.stat-item { display: flex; justify-content: space-between; gap: 12px; padding: 5px 8px; background: var(--paper);
+             border-bottom: 1px dotted var(--rule); }
+.stat-value { white-space: pre-wrap; overflow-wrap: anywhere; }
+.stat-value.number { font-variant-numeric: tabular-nums; }
+.stat-meta { flex: none; display: flex; gap: 10px; font-size: 12px; color: var(--ink-faint); }
+.stat-user { color: var(--primary-dark); font-size: 12.5px; }
+.load-more { text-align: center; padding: 6px 0 20px; }
+.resp-card { margin: 0 36px 14px; padding: 10px 14px; background: var(--paper); border: 1px solid var(--rule); border-radius: var(--radius); }
+.resp-head { display: flex; gap: 12px; align-items: baseline; padding-bottom: 6px; margin-bottom: 6px; border-bottom: 1px dashed var(--rule); }
+.resp-row { display: grid; grid-template-columns: minmax(120px, 40%) 1fr; gap: 12px; padding: 3px 0; }
+.resp-q { color: var(--ink-soft); font-size: 13.5px; }
+.resp-a { white-space: pre-wrap; overflow-wrap: anywhere; }
+
 /* ---------- 进度条（填写页） ---------- */
 .progress { position: sticky; top: 0; z-index: 10; height: 4px; background: var(--rule); }
 .progress > div { height: 100%; background: var(--primary); transition: width .3s ease; }
 
 /* ---------- 统计柱状条 ---------- */
-.bar-row { display: grid; grid-template-columns: minmax(80px, 30%) 1fr auto; gap: 10px; align-items: center; margin: 4px 0; }
+/* 数字栏固定宽度：每行是独立的网格，若按内容自适应，各行底槽长短不一，柱子就无法直接比较 */
+.bar-row { display: grid; grid-template-columns: minmax(80px, 30%) 1fr 8.5em; gap: 10px; align-items: center; margin: 4px 0; }
 .bar-label { overflow-wrap: anywhere; }
 .bar-track { height: 12px; background: var(--paper); border: 1px solid var(--rule); border-radius: 2px; overflow: hidden; }
 .bar-fill { height: 100%; background: var(--primary); }
-.bar-value { font-size: 12.5px; color: var(--ink-soft); white-space: nowrap; }
+.bar-value { font-size: 12.5px; color: var(--ink-soft); white-space: nowrap; text-align: right; }
 .stat-numbers { display: flex; gap: 28px; flex-wrap: wrap; }
 .stat-number b { font-family: var(--font-serif); font-size: 24px; color: var(--primary); display: block; line-height: 1.2; }
 .stat-number span { font-size: 12.5px; color: var(--ink-faint); }
@@ -332,4 +351,7 @@ select:focus { border-color: var(--primary); }
   .settings-grid { grid-template-columns: 1fr; }
   .skip-btn { margin-left: 0; }
   .submit-bar, .thanks { padding-left: 16px; padding-right: 16px; }
+  .resp-card { margin-left: 12px; margin-right: 12px; }
+  .resp-row { grid-template-columns: 1fr; gap: 0; }
+  .stat-item { flex-direction: column; gap: 0; }
 }

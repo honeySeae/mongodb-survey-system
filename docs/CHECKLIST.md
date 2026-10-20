@@ -76,7 +76,7 @@
 - [x] 提交问卷测试（`tests/test_fill.py`）
 - [x] 统计测试（`tests/test_stats.py`）
 - [x] 数据库校验规则与索引测试（`tests/test_db.py`，第二步）
-- [x] 界面测试（`tests/ui/`：无界面 Chrome 操作真实页面，编辑页、填写页；截图与步骤记录在 `tests/ui/screenshots/`）
+- [x] 界面测试（`tests/ui/`：无界面 Chrome 操作真实页面，编辑页、填写页、统计页；截图与步骤记录在 `tests/ui/screenshots/`）
 - [x] 64 位整数边界：数据库层存储测试（`tests/test_db.py`）
 - [x] 64 位整数边界：校验引擎拒绝超范围整数的测试（`tests/test_validation.py`，第六步）
 - [ ] `docs/TEST_CASES.md`：每个用例写明测试步骤、输入、输出、结果
@@ -134,7 +134,7 @@
 | 6. 跳转与校验引擎 | ✅ | `a89a1b9` |
 | 7. 填写与提交 | ✅ | `497e1e3` |
 | 8. 统计 | ✅ | `ae87ad4` |
-| 9. 简单前端 | 进行中：9a ✅ 9b ✅ 9c ✅（填写页），9d 统计 | 9b `c395c8b`，9c 见下一步更新 |
+| 9. 简单前端 | ✅ 9a 公共样式与登录、9b 编辑、9c 填写、9d 统计 | 9b `c395c8b`，9c `bbdb373`，9d 见下一步更新 |
 | 10. 示例数据、测试补全、TEST_CASES.md | | |
 | 11. README 与文档 | | |
 | 12. 第一阶段提交（`phase1` 标签、推送 GitHub、报告） | | |

@@ -8,13 +8,38 @@
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
-  <!-- 占位页面：完整功能在 9d 实现 -->
   <main class="page">
     <div class="paper">
-      <div class="paper-head"><h1 id="title">统计结果</h1></div>
-      <div class="paper-body"><div class="notice info" id="info">该页面将在 9d 实现。</div></div>
+      <div class="paper-head">
+        <div class="head-row">
+          <div>
+            <h1 id="title">加载中…</h1>
+            <div class="meta" id="meta"></div>
+          </div>
+          <div class="actions" id="head-actions"></div>
+        </div>
+      </div>
+      <div class="paper-body msg-slot" id="message"></div>
+      <div class="tabs" role="tablist" id="tabs" hidden>
+        <button type="button" id="tab-stats" class="active" role="tab">统计</button>
+        <button type="button" id="tab-responses" role="tab">答卷列表</button>
+      </div>
+
+      <section id="panel-stats" hidden>
+        <div class="paper-body">
+          <div class="stat-numbers" id="totals"></div>
+          <div class="muted mt" id="scope"></div>
+        </div>
+        <div id="question-stats"></div>
+      </section>
+
+      <section id="panel-responses" hidden>
+        <div class="paper-body"><div class="muted" id="responses-summary"></div></div>
+        <div id="responses"></div>
+        <div class="load-more"><button class="btn small ghost" type="button" id="responses-more" hidden>加载更多答卷</button></div>
+      </section>
     </div>
   </main>
-  <script type="module" src="/static/js/placeholder.js"></script>
+  <script type="module" src="/static/js/stats.js"></script>
 </body>
 </html>
