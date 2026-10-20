@@ -14,9 +14,16 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # 项目根目录下的 .env（与启动时所在目录无关）
 ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 
+# .env.example 中的示例密钥：公开在仓库里，用它签名的令牌任何人都能伪造，因此拒绝使用。
+# 修改 .env.example 中的示例值时须同步修改这里（tests/test_health.py 会检查两者一致）。
+EXAMPLE_JWT_SECRETS = frozenset({"change-me-to-a-long-random-string"})
+GENERATE_SECRET_HINT = 'python -c "import secrets; print(secrets.token_urlsafe(48))"'
+
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore")
+    # hide_input_in_errors：配置有误时报错信息不回显输入值，避免把（真实的）密钥打进控制台和日志
+    model_config = SettingsConfigDict(env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore",
+                                      hide_input_in_errors=True)
 
     # MongoDB
     mongo_uri: str
@@ -35,10 +42,13 @@ class Settings(BaseSettings):
 
     @field_validator("jwt_secret")
     @classmethod
-    def _secret_long_enough(cls, v: str) -> str:
+    def _secret_usable(cls, v: str) -> str:
+        # 示例值长度够 32 个字符，但它是公开的，必须单独拒绝（部署时忘记修改也无法启动）
+        if v.strip() in EXAMPLE_JWT_SECRETS:
+            raise ValueError(f"JWT_SECRET 仍是 .env.example 中的示例值，请重新生成：{GENERATE_SECRET_HINT}")
         # HS256 建议密钥至少 32 字节，过短的密钥容易被暴力破解
         if len(v.encode("utf-8")) < 32:
-            raise ValueError("JWT_SECRET 至少 32 个字符，请在 .env 中设置一段足够长的随机字符串")
+            raise ValueError(f"JWT_SECRET 至少 32 个字符，请重新生成：{GENERATE_SECRET_HINT}")
         return v
 
     @field_validator("public_base_url")

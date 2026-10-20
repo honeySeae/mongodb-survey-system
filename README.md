@@ -133,7 +133,7 @@ copy .env.example .env      # Windows；Mac / Linux：cp .env.example .env
 |---|---|---|
 | `MONGO_URI` | MongoDB 连接串 | `mongodb://127.0.0.1:27017` |
 | `MONGO_DB_NAME` | 数据库名（测试会自动改用 `survey_test`，不影响这里的数据） | `survey_dev` |
-| `JWT_SECRET` | 登录令牌签名密钥，**至少 32 个字符**，否则程序拒绝启动 | 用下面的命令生成 |
+| `JWT_SECRET` | 登录令牌签名密钥，**至少 32 个字符**；`.env.example` 中的示例值会被拒绝。不满足时程序拒绝启动并提示生成命令 | 用下面的命令生成 |
 | `JWT_EXPIRE_MINUTES` | 登录有效期（分钟） | `1440` |
 | `PUBLIC_BASE_URL` | 对外访问地址，用于生成问卷链接 `<地址>/survey/<shortCode>`，结尾不加 `/` | `http://127.0.0.1:8000` |
 | `BCRYPT_ROUNDS` | 可选，bcrypt 强度，默认 12（测试中自动设为 4） | 不设置 |
@@ -224,7 +224,7 @@ JWT_EXPIRE_MINUTES=1440
 PUBLIC_BASE_URL=http://<服务器公网 IP 或域名>:8000
 ```
 
-> **安全要求：部署时必须重新生成 `JWT_SECRET`**，不要使用 `.env.example` 中的示例值，也不要沿用本地开发的密钥。知道密钥的人可以伪造任何用户的登录令牌。
+> **安全要求：部署时必须重新生成 `JWT_SECRET`**，不要沿用本地开发的密钥。知道密钥的人可以伪造任何用户的登录令牌。程序会拒绝 `.env.example` 中的示例值和少于 32 个字符的密钥（启动失败并提示生成命令；报错信息不回显密钥）。
 
 **4. 用 systemd 运行服务**
 
@@ -882,9 +882,9 @@ pytest --cov=app --cov=scripts --cov-report=term-missing    # 覆盖率
 | 接口测试 | 每个接口的正常与异常、权限、三种提交策略、并发 | pytest + FastAPI TestClient |
 | 界面测试 | 编辑页、填写页、统计页（29 个步骤，含截图） | Node.js 驱动无界面 Chrome（`tests/ui/`） |
 
-**运行结果**（2026-10-20）：**645 个测试全部通过，代码覆盖率 99%**。测试使用独立数据库，不影响开发数据。
+**运行结果**（2026-10-20）：**649 个测试全部通过，代码覆盖率 99%**。测试使用独立数据库，不影响开发数据。
 
-**代表性用例**（完整的 97 条用例见 **[docs/TEST_CASES.md](docs/TEST_CASES.md)**）
+**代表性用例**（完整的 98 条用例见 **[docs/TEST_CASES.md](docs/TEST_CASES.md)**）
 
 | 测试点 | 输入 | 期望输出 | 结果 |
 |---|---|---|---|

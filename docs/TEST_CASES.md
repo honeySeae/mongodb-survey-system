@@ -38,10 +38,12 @@ pytest --cov=app --cov=scripts --cov-report=term-missing   # 代码覆盖率
 
 ## 二、运行记录
 
-**2026-10-20 16:03**，命令 `pytest --cov=app --cov=scripts`：
+**2026-10-20 16:23**，命令 `pytest --cov=app --cov=scripts`：
 
-- **645 个测试全部通过**，0 失败，0 跳过，用时 37.6 秒。
-- **代码覆盖率 99%**（`app/` 与 `scripts/` 共 1629 行，未覆盖 8 行，均为防御性分支和脚本入口行）。
+- **649 个测试全部通过**，0 失败，0 跳过，用时 37.0 秒。
+- **代码覆盖率 99%**（`app/` 与 `scripts/` 共 1633 行，未覆盖 8 行，均为防御性分支和脚本入口行）。
+- 此前 16:03 的运行为 645 个全部通过；之后新增 4 个配置测试（拒绝示例密钥，见 A9）。
+- 第 11 步在干净环境中（从仓库克隆、新建虚拟环境、完全按 README 操作）运行，同样全部通过。
 
 | 测试文件 | 用例数 | 内容 |
 |---|---|---|
@@ -59,10 +61,10 @@ pytest --cov=app --cov=scripts --cov-report=term-missing   # 代码覆盖率
 | `test_seed_demo.py` | 6 | 示例数据脚本 |
 | `test_edge_cases.py` | 13 | 覆盖率检查后补充的边界情况 |
 | `test_pages.py` | 18 | 页面路由、静态资源、`/api/meta` |
-| `test_health.py` | 4 | 健康检查、配置 |
+| `test_health.py` | 8 | 健康检查、配置（含拒绝示例密钥） |
 | `test_frontend_js.py` | 1 | 前端纯函数（Node.js） |
 | `test_ui.py` | 3 | 界面测试：编辑页、填写页、统计页（共 29 个步骤） |
-| **合计** | **645** | |
+| **合计** | **649** | |
 
 ## 三、测试用例
 
@@ -79,6 +81,7 @@ pytest --cov=app --cov=scripts --cov-report=term-missing   # 代码覆盖率
 | A5 | 密码长度边界 | 注册 | 7/8 个字符、72/73 字节、24/25 个汉字、5 个汉字 | 至少 8 个字符、最多 72 字节；5 个汉字（15 字节但只有 5 个字符）被拒 | 通过 | `test_auth.py::test_register_password_length` |
 | A6 | 登录失败不泄露用户名是否存在 | 登录 | 正确用户名 + 错误密码；不存在的用户名 | 两者都返回完全相同的 401“用户名或密码错误” | 通过 | `test_login_wrong_password_and_unknown_user_same_response` |
 | A7 | 令牌无效 | GET `/api/auth/me` | 无令牌、格式错误、他人密钥签名、已过期、用户不存在、缺少 sub、sub 不是合法 id | 401：`NOT_AUTHENTICATED` / `INVALID_TOKEN` / `TOKEN_EXPIRED` | 通过 | `test_auth.py::test_me_*`、`test_edge_cases.py::test_token_with_malformed_subject` |
+| A9 | 拒绝不安全的 JWT 密钥 | 用不同的 `JWT_SECRET` 加载配置 | 少于 32 个字符；`.env.example` 中的示例值（前后带空格也算）；真实但过短的密钥 | 拒绝启动并提示生成命令；示例值单独提示“仍是 .env.example 中的示例值”；报错信息中不出现输入的密钥；`.env.example` 的示例值与程序拒绝的列表一致 | 通过 | `test_health.py::test_short_jwt_secret_rejected`、`test_example_jwt_secret_rejected`、`test_config_errors_do_not_echo_secret`、`test_example_secret_list_matches_env_example` |
 | A8 | 统一错误格式 | 发送各种不合法请求 | 缺字段、类型错误、非法 JSON、非 UTF-8 请求体、未知路径、错误方法、未处理异常 | 统一为 `{code, message, errors?}` 的中文提示；JSON 错误位置写在 message 中；500 不暴露内部细节 | 通过 | `test_auth.py::test_*_unified_error_format`、`test_invalid_json_*`、`test_edge_cases.py::test_unexpected_error_returns_unified_500` |
 
 ### B. 问卷管理与状态
