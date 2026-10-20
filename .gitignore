@@ -18,3 +18,8 @@ Thumbs.db
 
 # 界面测试截图（每次运行重新生成；整理文档时挑选复制到 docs/）
 tests/ui/screenshots/
+
+# 覆盖率数据（pytest --cov 运行时生成）
+.coverage
+.coverage.*
+htmlcov/
