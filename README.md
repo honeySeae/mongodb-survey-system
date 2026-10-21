@@ -884,6 +884,8 @@ pytest --cov=app --cov=scripts --cov-report=term-missing    # 覆盖率
 
 **运行结果**（2026-10-20）：**649 个测试全部通过，代码覆盖率 99%**。测试使用独立数据库，不影响开发数据。
 
+**基于本人手工创建的问卷的端到端测试**：开发者在网页上手工创建了“大学生运动习惯调查”，[`scripts/sport_survey_e2e.py`](scripts/sport_survey_e2e.py) 通过 HTTP 接口模拟 15 位填写人（覆盖各条跳转路径与边界）和 6 份不合法答卷，逐项核对路径、实际保存的题目、拒绝提示和统计结果，详见 TEST_CASES 第四节。
+
 **代表性用例**（完整的 98 条用例见 **[docs/TEST_CASES.md](docs/TEST_CASES.md)**）
 
 | 测试点 | 输入 | 期望输出 | 结果 |
