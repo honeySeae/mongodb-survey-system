@@ -444,3 +444,16 @@
 - AI 产出：`pytest.ini` 增加 `pythonpath = .`；README 补充“在项目根目录、激活虚拟环境后运行，两种写法都可以”。核对 README 中的全部测试命令并在激活虚拟环境后按原样运行：`pytest` 660 个通过；`pytest -m "not ui"` 657 个通过、3 个界面测试按标记排除；`pytest --cov=app --cov=scripts --cov-report=term-missing` 660 个通过（覆盖率合计 88%，`app/` 99%，原因见第 32 条）；`python -m pytest` 660 个通过。
 - 是否修改：
 - 修改内容 / 本人决定：本人发现问题并指定修复方式（在 pytest 配置中设置 pythonpath）。
+
+### 34. 提交前检查（2026-10-22）
+- 工具：Claude Code
+- 提示词：开发者准备提交第一阶段，第 2 步“只回答、不改代码，对照代码确认报告里的说法”：responses 是否建了 `answers.questionId` 索引；发布后题目是否不能修改；问卷状态是否为草稿/已发布/已关闭三种、截止后是否拒绝提交。第 3 步“对照课程要求做提交前检查，逐项汇报”：README 内容、仓库内容、安全检查（.env 不在任何历史提交中、.env.example 无真实密钥、.coverage/.venv/pycache 不在仓库，.coverage 若在历史中只汇报不改写历史）、按 README 模拟新用户、git status 与未推送的提交。
+- 第 2 步结论（对照代码，未改代码）：① 是，`app/db_schema.py` 定义 `answers_questionId` 索引，开发库中实际存在；② 是，`survey_state.py` 中只有草稿允许 `edit_questions`，`services/questions.py` 对已发布、已关闭问卷返回 409“问卷已发布，不能修改题目”；③ 是，状态只有 draft/published/closed（`$jsonSchema` 枚举也限制为这三种）；截止时间到达（`now >= deadline`）即视同关闭，填写接口返回 409 `SURVEY_EXPIRED`，状态本身不自动改变，延长截止时间后恢复。
+- 第 3 步结果：
+  - README：课程要求的各项都有（逐项定位到行号）；22 个接口都有说明（19 个小节标题，发布与关闭合并一节，`/api/meta`、`/api/health` 在“其他”一节）。
+  - 仓库：后端、前端、测试（含界面测试）、索引与校验脚本（`app/db_schema.py`、`scripts/init_db.py`）、`docs/` 下设计文档、TEST_CASES、AI_LOG 等均在。
+  - 安全：`.env` 从未被提交；在全部历史提交的全部文件中搜索本机 `.env` 的 JWT 密钥，未出现；`.env.example` 只有示例值（且程序会拒绝它）；当前仓库中没有 .coverage/.venv/__pycache__/截图目录。**历史中有两个误提交的文件，按要求未改写历史**：`.coverage`（`a32448d` 加入、`f723b8b` 移除；是覆盖率 SQLite 数据库，只有文件路径和行号，无源代码和密钥，但路径为绝对路径，含 Windows 用户名 `maym6` 和项目目录）；空文件 `111`（`bb10cac` 加入、`bddf38e` 移除，0 字节）。
+  - 新用户模拟：从本地仓库克隆到临时目录，**严格使用 README 中的命令**（激活虚拟环境后直接用 `pytest`）：安装依赖、复制 `.env`（不改示例密钥时程序拒绝启动并提示）、生成密钥、初始化数据库、启动服务、生成示例问卷（链接 Food26）、`pytest` 660 通过、`pytest -m "not ui"` 657 通过、`pytest --cov…` 660 通过。与 README 的差别只有：数据库名用 `survey_newuser`、端口用 8766（8000 被开发者的服务占用）。结束后删除数据库和临时目录。
+- AI 出错：清理模拟环境时，按进程名和路径结束进程后端口仍在响应——`--reload` 模式派生的工作进程由系统 Python 运行，命令行中不含临时目录路径。AI 按父进程（刚结束的模拟进程）找到它（PID 52284）后结束，确认端口释放、开发者的 8000 服务正常。期间一条在 bash 中嵌套的 PowerShell 命令因引号问题失败，改用 PowerShell 工具执行。
+- 是否修改：
+- 修改内容：
