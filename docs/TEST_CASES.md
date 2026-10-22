@@ -63,163 +63,168 @@ pytest --cov=app --cov=scripts --cov-report=term-missing   # 代码覆盖率
 | `test_pages.py` | 18 | 页面路由、静态资源、`/api/meta` |
 | `test_health.py` | 8 | 健康检查、配置（含拒绝示例密钥） |
 | `test_frontend_js.py` | 1 | 前端纯函数（Node.js） |
-| `test_ui.py` | 3 | 界面测试：编辑页、填写页、统计页（共 29 个步骤） |
+| `test_ui.py` | 3 | 界面测试：编辑页、填写页、统计页（共 30 个步骤） |
 | **合计** | **660** | |
 
 ## 三、测试用例
 
-“实际结果”均为上述运行记录中的结果。同一测试点的多组输入合并为一行（参数化测试）。
+**说明**：
+
+- 每条用例写明**测试步骤、输入、期望输出、实际结果**，并对应到自动测试函数。同一测试点的多组输入合并为一行（参数化测试）。
+- **实际结果**是上述运行（2026-10-22 21:14）中测试断言检查到的实际返回值或数据库状态。断言要求实际值与表中的值相等（或包含表中的文字），测试通过即说明实际值就是表中所列的值；断言没有检查的内容不写进实际结果。99 条全部通过。
+- **水果问卷**：许多用例使用设计文档 3.4 的示例问卷（由 `tests/builders.py` 通过接口搭建）：第 1 题单选“你喜欢吃水果吗？”（喜欢/不喜欢；不喜欢 → 第 5 题）；第 2 题多选“你喜欢哪些水果？”（苹果/香蕉/西瓜/榴莲，必答 1–3 项；选了榴莲 → 第 3 题，否则 → 第 4 题）；第 3 题文本“为什么喜欢榴莲？”（选填 5–200 字）；第 4 题数字“你每周吃几次水果？”（必答 0–50 整数；0 → 结束）；第 5 题文本“其他建议”（选填）。**完整答案**指：喜欢 / [苹果, 榴莲] / “闻着臭吃着香” / 7 / “多吃水果”。
+- 测试账号的默认密码为 `password123`。
 
 ### A. 账号
 
-| 编号 | 测试点 | 步骤 | 输入 | 期望输出 | 实际结果 | 自动测试 |
+| 编号 | 测试点 | 测试步骤 | 输入 | 期望输出 | 实际结果 | 自动测试 |
 |---|---|---|---|---|---|---|
-| A1 | 注册成功 | POST `/api/auth/register` | `alice` / `password123` | 201，返回 id、username、createdAt，不含密码、不返回令牌 | 通过 | `test_auth.py::test_register_success`、`test_register_does_not_return_token` |
-| A2 | 密码只存哈希 | 注册后查数据库 | 密码 `my-secret-pw` | `passwordHash` 以 `$2b$` 开头，文档中不含明文 | 通过 | `test_auth.py::test_password_stored_as_bcrypt_hash` |
-| A3 | 用户名规则 | 注册 | `ab`、21 个字符、`al ice`、`alice!`、`张三丰`、全角字母 | 422，提示“长度应为 3~20 个字符”或“只能包含字母、数字和下划线” | 通过 | `test_auth.py::test_register_invalid_usernames` |
-| A4 | 用户名大小写与空格 | 注册后再注册 | `  Alice_01 `；再注册 `ALICE` | 保存为 `alice_01`；`ALICE` 视为重名，409 | 通过 | `test_username_stored_lowercase_and_trimmed`、`test_register_duplicate_username_case_insensitive` |
-| A5 | 密码长度边界 | 注册 | 7/8 个字符、72/73 字节、24/25 个汉字、5 个汉字 | 至少 8 个字符、最多 72 字节；5 个汉字（15 字节但只有 5 个字符）被拒 | 通过 | `test_auth.py::test_register_password_length` |
-| A6 | 登录失败不泄露用户名是否存在 | 登录 | 正确用户名 + 错误密码；不存在的用户名 | 两者都返回完全相同的 401“用户名或密码错误” | 通过 | `test_login_wrong_password_and_unknown_user_same_response` |
-| A7 | 令牌无效 | GET `/api/auth/me` | 无令牌、格式错误、他人密钥签名、已过期、用户不存在、缺少 sub、sub 不是合法 id | 401：`NOT_AUTHENTICATED` / `INVALID_TOKEN` / `TOKEN_EXPIRED` | 通过 | `test_auth.py::test_me_*`、`test_edge_cases.py::test_token_with_malformed_subject` |
-| A9 | 拒绝不安全的 JWT 密钥 | 用不同的 `JWT_SECRET` 加载配置 | 少于 32 个字符；`.env.example` 中的示例值（前后带空格也算）；真实但过短的密钥 | 拒绝启动并提示生成命令；示例值单独提示“仍是 .env.example 中的示例值”；报错信息中不出现输入的密钥；`.env.example` 的示例值与程序拒绝的列表一致 | 通过 | `test_health.py::test_short_jwt_secret_rejected`、`test_example_jwt_secret_rejected`、`test_config_errors_do_not_echo_secret`、`test_example_secret_list_matches_env_example` |
-| A8 | 统一错误格式 | 发送各种不合法请求 | 缺字段、类型错误、非法 JSON、非 UTF-8 请求体、未知路径、错误方法、未处理异常 | 统一为 `{code, message, errors?}` 的中文提示；JSON 错误位置写在 message 中；500 不暴露内部细节 | 通过 | `test_auth.py::test_*_unified_error_format`、`test_invalid_json_*`、`test_edge_cases.py::test_unexpected_error_returns_unified_500` |
+| A1 | 注册成功 | POST `/api/auth/register`，再查数据库 | `{"username": "alice", "password": "password123"}` | 201，返回 id、username、createdAt，不含密码、不返回令牌 | 201；`username` 为 `alice`，`id` 是合法 ObjectId，有 `createdAt`；响应中没有 `password`、`passwordHash`、`accessToken`；数据库中有该用户且 `createdAt` 不为空 | `test_auth.py::test_register_success`、`test_register_does_not_return_token` |
+| A2 | 密码只存哈希 | 注册后查数据库中的用户文档 | 用户名 `alice`，密码 `my-secret-pw` | `passwordHash` 以 `$2b$` 开头，文档中不含明文 | `passwordHash` ≠ 明文，以 `$2b$` 开头；整个用户文档中找不到 `my-secret-pw` | `test_auth.py::test_password_stored_as_bcrypt_hash` |
+| A3 | 用户名规则 | 用不合法用户名注册 | `ab`、21 个 `a`、空字符串、3 个空格、`al ice`、`alice!`、`张三丰`、全角 `ａｌｉｃｅ` | 422，提示“长度应为 3~20 个字符”或“只能包含字母、数字和下划线” | 8 组都是 422，`code` 为 `VALIDATION_ERROR`；前 4 组 errors 含 `{"field": "username", "message": "用户名长度应为 3~20 个字符"}`，后 4 组含 `{"field": "username", "message": "用户名只能包含字母、数字和下划线"}` | `test_auth.py::test_register_invalid_usernames` |
+| A4 | 用户名大小写与空格 | 注册后用大小写不同的同名再注册 | `"  Alice_01 "`；先注册 `alice`，再注册 `ALICE`、`" Alice "` | 保存为 `alice_01`；`ALICE` 视为重名，409 | `"  Alice_01 "` 注册 201，返回 `username` 为 `alice_01`；`ALICE`、`" Alice "` 都返回 409 | `test_username_stored_lowercase_and_trimmed`、`test_register_duplicate_username_case_insensitive` |
+| A5 | 密码长度边界 | 用不同密码注册，成功的再登录 | `1234567`（7 字符）、`12345678`（8 字符）、8 个汉字（24 字节）、5 个汉字（15 字节）、72/73 个 `a`、24/25 个“密”、8 个空格 | 至少 8 个字符、最多 72 字节；5 个汉字（15 字节但只有 5 个字符）被拒 | 8 字符、8 个汉字、72 字节、24 个汉字、8 个空格：注册 201，登录 200；7 字符、5 个汉字、73 字节、25 个汉字：422，出错字段只有 `password` | `test_auth.py::test_register_password_length` |
+| A6 | 登录失败不泄露用户名是否存在 | 注册 alice 后分别登录 | `alice` + `wrong-password`；`nobody` + `password123` | 两者都返回完全相同的 401“用户名或密码错误” | 两次都是 401，响应体完全相同：`{"code": "INVALID_CREDENTIALS", "message": "用户名或密码错误"}` | `test_login_wrong_password_and_unknown_user_same_response` |
+| A7 | 令牌无效 | 带不同令牌 GET `/api/auth/me` | 有效令牌（对照）；无令牌；`Bearer not-a-jwt`、`Bearer `、`Basic YWxpY2U6cGFzcw==`；用 `attacker-secret-…` 签名的令牌；1 分钟前过期的令牌；不存在用户的令牌；缺 `sub` 的令牌；`sub` 为 `not-an-object-id` | 401：`NOT_AUTHENTICATED` / `INVALID_TOKEN` / `TOKEN_EXPIRED` | 有效令牌 200，`username` 为 `alice`；无令牌 401 `{"code": "NOT_AUTHENTICATED", "message": "请先登录"}`，响应头 `WWW-Authenticate: Bearer`；3 种格式错误 401（`INVALID_TOKEN` 或 `NOT_AUTHENTICATED`）；他人密钥、用户不存在、缺 sub、sub 不合法均 401 `INVALID_TOKEN`；过期 401 `{"code": "TOKEN_EXPIRED", "message": "登录已过期，请重新登录"}` | `test_auth.py::test_me_*`、`test_edge_cases.py::test_token_with_malformed_subject` |
+| A8 | 统一错误格式 | 发送各种不合法请求 | 注册时只有 username；`username` 为 `123`；请求体 `{not json`；第 2 行缺值的 JSON；GBK 编码的请求体；GET `/api/no-such-route`；GET `/api/auth/login`；模拟服务内部抛出含 `secret detail` 的异常 | 统一为 `{code, message, errors?}` 的中文提示；JSON 错误位置写在 message 中；500 不暴露内部细节 | 缺字段 422 `{"code": "VALIDATION_ERROR", "message": "提交内容不合法", "errors": [{"field": "password", "message": "缺少必填字段"}]}`；类型错误 errors 为 `[{"field": "username", "message": "应为字符串"}]`；`{not json` → `[{"field": "body", "message": "请求体不是合法的 JSON（第 2 个字符附近）"}]`；第 2 行缺值 → “（第 36 个字符附近）”；GBK 400 `{"code": "BAD_REQUEST", "message": "请求体无法解析，请使用 UTF-8 编码的 JSON"}`；未知路径 404 `{"code": "NOT_FOUND", "message": "请求的资源不存在"}`；错误方法 405 `METHOD_NOT_ALLOWED`；内部异常 500 `{"code": "INTERNAL_ERROR", "message": "服务器内部错误"}`，响应中没有 `secret` | `test_auth.py::test_*_unified_error_format`、`test_invalid_json_*`、`test_edge_cases.py::test_unexpected_error_returns_unified_500` |
+| A9 | 拒绝不安全的 JWT 密钥 | 用不同的 `JWT_SECRET` 加载配置 | `too-short`；`.env.example` 中的示例值，以及前后各加 2 个空格的示例值；`my-real-server-key-20`（真实但过短） | 拒绝启动并提示生成命令；示例值单独提示“仍是 .env.example 中的示例值”；报错信息中不出现输入的密钥；`.env.example` 的示例值与程序拒绝的列表一致 | `too-short`：抛出 ValidationError，信息含“至少 32 个字符”和 `secrets.token_urlsafe`；示例值（两种写法）：信息含“仍是 .env.example 中的示例值”和 `secrets.token_urlsafe`；`my-real-server-key-20` 没有出现在报错信息中；`.env.example` 的示例值在 `EXAMPLE_JWT_SECRETS` 中 | `test_health.py::test_short_jwt_secret_rejected`、`test_example_jwt_secret_rejected`、`test_config_errors_do_not_echo_secret`、`test_example_secret_list_matches_env_example` |
 
 ### B. 问卷管理与状态
 
-| 编号 | 测试点 | 步骤 | 输入 | 期望输出 | 实际结果 | 自动测试 |
+| 编号 | 测试点 | 测试步骤 | 输入 | 期望输出 | 实际结果 | 自动测试 |
 |---|---|---|---|---|---|---|
-| B1 | 创建问卷 | POST `/api/surveys` | 标题、说明、匿名、`latest`、截止 `2099-11-30T23:59:59+08:00` | 201，草稿；截止时间统一存 UTC（`15:59:59Z`）；链接不存库 | 通过 | `test_surveys.py::test_create_survey` |
-| B2 | 默认值与 shortCode | 只填标题；连续创建 20 份 | — | 说明为空、不匿名、`once`；shortCode 为 6 位字母数字且互不重复；重复时自动重试 | 通过 | `test_create_defaults`、`test_short_code_and_url`、`test_short_codes_are_unique`、`test_short_code_collision_retries` |
-| B3 | 字段校验 | 创建 | 空标题、101 字标题、1001 字说明、过去的截止时间、无时区时间、`daily` 策略、`"yes"` 作为布尔值 | 422，指出字段和原因 | 通过 | `test_create_invalid_fields`、`test_create_invalid_types`、`test_create_deadline_without_timezone_rejected` |
-| B4 | 只能看到自己的问卷 | alice、bob 各建问卷后 alice 查列表 | — | 只含 alice 的问卷，新的在前，含题目数、答卷数 | 通过 | `test_list_only_my_surveys_newest_first`、`test_list_question_count` |
-| B5 | 访问别人的问卷 | bob 对 alice 的问卷做查看/修改/删除/发布/关闭 | — | 与不存在的问卷返回完全相同的 404，数据不变 | 通过 | `test_surveys.py::test_cannot_access_others_survey` |
-| B6 | 各状态可改字段 | 草稿、已发布、已关闭时分别修改 | 标题、说明、截止时间、匿名、提交策略 | 发布后只能改标题、说明、截止时间；匿名和策略 409 `FIELD_LOCKED`（说明原因）；关闭后全部拒绝；被拒时整个请求不生效 | 通过 | `test_update_published_allowed_fields`、`test_update_published_locked_fields`、`test_update_closed_rejected` |
-| B7 | 相同值不算修改 | 已发布问卷提交与当前相同的锁定字段 | 原策略、原匿名设置 + 新标题 | 200，标题已修改 | 通过 | `test_update_same_value_on_locked_field_is_ok` |
-| B8 | 发布条件 | 发布 | 无题目；截止时间已过；已发布再发布；已关闭再发布 | 422 `NO_QUESTIONS`；422 截止时间；409 `INVALID_STATUS` | 通过 | `test_publish_without_questions_rejected`、`test_publish_with_past_deadline_rejected`、`test_publish_twice_or_after_close_rejected` |
-| B9 | 关闭与删除 | 关闭、删除 | 草稿关闭；已发布/已关闭删除 | 草稿不能关闭（409）；只能删除草稿 | 通过 | `test_close_draft_rejected`、`test_delete_draft`、`test_delete_non_draft_rejected` |
-| B10 | 过期与延长 | 截止时间设为过去后查看、修改 | 延长截止时间或改为不限 | `isExpired` 为 true，状态仍为 published；延长后恢复为 false | 通过 | `test_expired_survey`、`test_extend_expired_survey_resumes` |
-| B11 | 并发发布 | 8 个线程同时发布同一份问卷 | — | 只有 1 个成功，其余 `INVALID_STATUS` | 通过 | `test_surveys.py::test_concurrent_publish_only_one_succeeds` |
-| B12 | 状态规则表 | 纯函数 | 3 种状态 × 4 种操作；5 个字段 | 与设计文档 6.4 的表格逐格一致 | 通过 | `test_survey_state.py::test_can`、`test_locked_fields` |
+| B1 | 创建问卷 | alice POST `/api/surveys`，再查数据库 | `{"title": "水果偏好调查", "description": "了解大家吃水果的习惯", "allowAnonymous": true, "submissionPolicy": "latest", "deadline": "2099-11-30T23:59:59+08:00"}` | 201，草稿；截止时间统一存 UTC（`15:59:59Z`）；链接不存库 | 201；`status` 为 `draft`，`isExpired` 为 false，`version` 为 1，`questions` 为空，`publishedAt`、`closedAt` 为 null；`settings.deadline` 为 `2099-11-30T15:59:59Z`；数据库中 `ownerId` 是 alice 的 id，截止时间存为 UTC 2099-11-30 15:59:59，文档中没有 `url` 字段 | `test_surveys.py::test_create_survey` |
+| B2 | 默认值与 shortCode | 只填标题创建；连续创建 20 份；模拟随机生成的代码与已有代码重复 | `{"title": "只有标题"}`；20 次创建；生成器依次返回 [已有代码, 已有代码, `Zz9Yy8`] | 说明为空、不匿名、`once`；shortCode 为 6 位字母数字且互不重复；重复时自动重试 | `description` 为 `""`，`settings` 为 `{"allowAnonymous": false, "submissionPolicy": "once", "deadline": null}`；shortCode 匹配 `[A-Za-z0-9]{6}`，`url` 为 `PUBLIC_BASE_URL` + `/survey/<shortCode>`；20 个 shortCode 互不相同；重复 2 次后得到 `Zz9Yy8` | `test_create_defaults`、`test_short_code_and_url`、`test_short_codes_are_unique`、`test_short_code_collision_retries` |
+| B3 | 字段校验 | 用不合法字段创建 | 空标题、3 个空格的标题、101 字标题、1001 字说明、截止 `2020-01-01T00:00:00Z`、无时区 `2099-11-30T23:59:59`、`"submissionPolicy": "daily"`、`"allowAnonymous": "yes"` 或 `1`、`"deadline": "下周五"` | 422，指出字段和原因 | 均 422；errors 分别含 `{"field": "title", "message": "标题不能为空"}`（空标题、空格标题）、`{"field": "title", "message": "标题最多 100 个字符"}`、`{"field": "description", "message": "说明最多 1000 个字符"}`、`{"field": "deadline", "message": "截止时间必须晚于当前时间"}`；无时区时第一条错误字段为 `deadline`，信息含“时区”；`daily`、`"yes"`、`1`、`"下周五"` 的 errors 分别含 `submissionPolicy`、`allowAnonymous`、`allowAnonymous`、`deadline` | `test_create_invalid_fields`、`test_create_invalid_types`、`test_create_deadline_without_timezone_rejected` |
+| B4 | 只能看到自己的问卷 | alice 依次建 A1、A2，bob 建 B1；给 alice 的问卷直接加 1 道题；alice GET `/api/surveys` | 问卷标题 `A1`、`A2`（alice）、`B1`（bob） | 只含 alice 的问卷，新的在前，含题目数、答卷数 | alice 的列表 id 顺序为 [A2, A1]，不含 B1；列表项不含 `questions`；加题后 `questionCount` 为 1（答卷数 `responseCount` 的核对见 H6） | `test_list_only_my_surveys_newest_first`、`test_list_question_count` |
+| B5 | 访问别人的问卷 | bob 对 alice 的问卷（有 1 道题）和一个随机不存在的 id 分别操作；alice 再查看问卷 | bob 的令牌；GET、PATCH `{"title": "改"}`、DELETE、POST `/publish`、POST `/close` | 与不存在的问卷返回完全相同的 404，数据不变 | 5 种操作对两个 id 都返回 404，响应体都是 `{"code": "SURVEY_NOT_FOUND", "message": "问卷不存在"}`；alice 再查看，问卷与操作前完全相同 | `test_surveys.py::test_cannot_access_others_survey` |
+| B6 | 各状态可改字段 | 已发布、已关闭的问卷分别 PATCH | 已发布：标题“新标题”、说明“新说明”、截止 `2099-01-01T00:00:00+08:00`；`submissionPolicy: all` + 改标题；`allowAnonymous: true` + 改标题。已关闭：5 个字段各改一次 | 发布后只能改标题、说明、截止时间；匿名和策略 409 `FIELD_LOCKED`（说明原因）；关闭后全部拒绝；被拒时整个请求不生效 | 允许的字段 200，`deadline` 为 `2098-12-31T16:00:00Z`；改策略、匿名：409，`code` 为 `FIELD_LOCKED`，errors 只有该字段，message 分别含“统计口径”“隐私承诺”，标题仍为原值；已关闭 5 次都是 409 `FIELD_LOCKED`，message 以“问卷已关闭，不能修改”开头 | `test_update_published_allowed_fields`、`test_update_published_locked_fields`、`test_update_closed_rejected` |
+| B7 | 相同值不算修改 | 已发布问卷（latest、匿名）提交与当前相同的锁定字段 | `{"title": "新标题", "submissionPolicy": "latest", "allowAnonymous": true}` | 200，标题已修改 | 200，`title` 为“新标题” | `test_update_same_value_on_locked_field_is_ok` |
+| B8 | 发布条件 | 不同情况下 POST `/publish` | 无题目的草稿；截止时间改为 2020-01-01 的草稿；已发布再发布；已关闭再发布 | 422 `NO_QUESTIONS`；422 截止时间；409 `INVALID_STATUS` | 无题目 422 `{"code": "NO_QUESTIONS", "message": "问卷至少需要 1 道题才能发布"}`；截止已过 422，第一条错误字段为 `deadline`；已发布 409 `{"code": "INVALID_STATUS", "message": "只有草稿的问卷可以发布（当前状态：已发布）"}`；已关闭 409，message 为“…（当前状态：已关闭）” | `test_publish_without_questions_rejected`、`test_publish_with_past_deadline_rejected`、`test_publish_twice_or_after_close_rejected` |
+| B9 | 关闭与删除 | POST `/close`、DELETE | 草稿关闭；草稿删除；已发布、已关闭的问卷删除 | 草稿不能关闭（409）；只能删除草稿 | 草稿关闭 409，message 为“只有已发布的问卷可以关闭（当前状态：草稿）”；删除草稿 204，数据库中已没有该文档，再查看 404；删除已发布/已关闭的问卷 409 `INVALID_STATUS`，文档仍在 | `test_close_draft_rejected`、`test_delete_draft`、`test_delete_non_draft_rejected` |
+| B10 | 过期与延长 | 已发布问卷的截止时间直接改为过去，查看详情和列表；再 PATCH 截止时间 | 截止时间 2020-01-01；新截止时间为 30 天后或 `null` | `isExpired` 为 true，状态仍为 published；延长后恢复为 false | 详情 `status` 为 `published`、`isExpired` 为 true，列表中 `isExpired` 也为 true；两种延长方式都 200，`isExpired` 为 false，`status` 为 `published` | `test_expired_survey`、`test_extend_expired_survey_resumes` |
+| B11 | 并发发布 | 8 个线程同时调用发布 | 1 份有 1 道题的草稿 | 只有 1 个成功，其余 `INVALID_STATUS` | 8 个结果中成功 1 个，其余都是 `INVALID_STATUS` | `test_surveys.py::test_concurrent_publish_only_one_succeeds` |
+| B12 | 状态规则表 | 纯函数 `can(状态, 操作)`、`locked_fields(状态)` | 3 种状态（另加未知状态）× 4 种操作（发布、关闭、删除、改题目）；5 个设置字段 | 与设计文档 6.4 的表格逐格一致 | 13 组 `can` 结果与表一致（只有草稿可发布/删除/改题目，只有已发布可关闭，未知状态一律 false）；锁定字段：草稿 `[]`，已发布 `[allowAnonymous, submissionPolicy]`，已关闭 5 个字段全部锁定 | `test_survey_state.py::test_can`、`test_locked_fields` |
 
 ### C. 题目与题目设置校验
 
-| 编号 | 测试点 | 步骤 | 输入 | 期望输出 | 实际结果 | 自动测试 |
+| 编号 | 测试点 | 测试步骤 | 输入 | 期望输出 | 实际结果 | 自动测试 |
 |---|---|---|---|---|---|---|
-| C1 | 添加题目 | POST `/api/surveys/{id}/questions` | 单选题“你喜欢吃水果吗？”，选项 喜欢/不喜欢 | 201；题目 id `q_`+6 位、选项 id `o_`+6 位，问卷内不重复 | 通过 | `test_questions.py::test_add_question`、`test_ids_unique_across_survey` |
-| C2 | 插入位置 | 依次添加并指定 position | position=1、3、5；0、3（只有 1 题时）、-1 | 插入到指定位置；越界时 422 | 通过 | `test_add_appends_by_default_and_supports_position`、`test_add_invalid_position` |
-| C3 | 添加时不接受跳转规则 | 添加题目时带 logic | — | 422“添加题目时不能设置跳转规则，请添加后通过修改题目设置” | 通过 | `test_questions.py::test_add_with_logic_rejected` |
-| C4 | 多选数量设置 | 保存题目 | minSelect>maxSelect、maxSelect>选项数、0、负数、1.5、`true`、`"2"` | 拒绝并指出字段；“必须选 2 项”（min=max=2）合法 | 通过 | `test_question_rules.py::test_multiple_choice_select_counts`、`test_valid_settings` |
-| C5 | 文本、数字设置 | 保存题目 | minLength>maxLength、maxLength=10001、min>max、`"0"` 作为 min、`integerOnly: "yes"` | 拒绝；年龄 0–120 整数、手机号整数等合法 | 通过 | `test_text_lengths`、`test_number_range`、`test_valid_settings` |
-| C6 | 字段与题型不匹配 | 保存题目 | 单选带 minSelect、数字题带 minLength、文本题带 options | 直接拒绝，不静默忽略 | 通过 | `test_field_not_matching_type_rejected`、`test_non_choice_cannot_have_options` |
-| C7 | 选项规则 | 保存题目 | 0 个选项、51 个选项、空选项文字、重复选项文字 | 拒绝 | 通过 | `test_choice_requires_options`、`test_option_count_limit`、`test_option_text_rules` |
-| C8 | 修改选项时 id 稳定 | 修改选项文字后再查看跳转规则 | “不喜欢”改为“一点也不喜欢” | 选项 id 不变，引用它的规则仍有效；新增选项获得新 id | 通过 | `test_option_ids_stable_when_renaming`、`test_add_option_in_update_gets_new_id` |
-| C9 | 发布后不能改题目 | 发布/关闭后添加、修改、删除、排序 | — | 409“问卷已发布，不能修改题目” | 通过 | `test_questions.py::test_cannot_edit_after_publish` |
-| C10 | 编辑冲突 | 带过期的 `expectedUpdatedAt` 保存；8 线程并发添加 | — | 409 `EDIT_CONFLICT`；并发添加不丢失修改；同一毫秒内 updatedAt 仍严格递增 | 通过 | `test_expected_updated_at_stale`、`test_concurrent_edits_do_not_lose_updates`、`test_updated_at_strictly_increases` |
+| C1 | 添加题目 | POST `/api/surveys/{id}/questions`；再连续添加 5 道 | 单选题“你喜欢吃水果吗？”，选项 喜欢/不喜欢，必答 | 201；题目 id `q_`+6 位、选项 id `o_`+6 位，问卷内不重复 | 201；题目 id 匹配 `q_[a-z0-9]{6}`，选项 id 匹配 `o_[a-z0-9]{6}`；选项文字为 [喜欢, 不喜欢]，`validation` 为 `{"required": true}`，没有 `logic`；5 道题共 15 个 id 互不相同 | `test_questions.py::test_add_question`、`test_ids_unique_across_survey` |
+| C2 | 插入位置 | 依次添加并指定 position | 先加 A、B，再加“开头”(position=1)、“第三”(3)、“末尾”(5)；只有 1 题时 position=0、3、-1 | 插入到指定位置；越界时 422 | 顺序为 [开头, A, 第三, B, 末尾]；越界 3 组都是 422，errors 为 `[{"field": "position", "message": "position 应为 1~2"}]` | `test_add_appends_by_default_and_supports_position`、`test_add_invalid_position` |
+| C3 | 添加时不接受跳转规则 | 添加题目时带 logic | 单选题 + `"logic": {"rules": [], "defaultNext": null}` | 422“添加题目时不能设置跳转规则，请添加后通过修改题目设置” | 422，errors 为 `[{"field": "logic", "message": "添加题目时不能设置跳转规则，请添加后通过修改题目设置"}]` | `test_questions.py::test_add_with_logic_rejected` |
+| C4 | 多选数量设置 | 检查单题设置（4 个选项的多选题） | minSelect 3 + maxSelect 2、maxSelect 5、minSelect 5、minSelect 0、maxSelect -1、minSelect 1.5、`true`、`"2"`；“必须选 2 项”（min=max=2）等 13 种合法设置 | 拒绝并指出字段；“必须选 2 项”（min=max=2）合法 | 8 组不合法设置的问题列表分别含 `validation.minSelect` 或 `validation.maxSelect`；13 种合法设置的问题列表都为空 | `test_question_rules.py::test_multiple_choice_select_counts`、`test_valid_settings` |
+| C5 | 文本、数字设置 | 检查单题设置 | 文本：minLength 10 + maxLength 5、minLength -1、maxLength 0、10001、2.5、`true`、minLength `"3"`；数字：min 10 + max 0、min `"0"`、max `true`、integerOnly `"yes"`、`1`；合法：年龄 0–120 整数、手机号整数等 | 拒绝；年龄 0–120 整数、手机号整数等合法 | 7 组文本、5 组数字的问题列表分别含对应字段（`validation.minLength` / `maxLength` / `min` / `max` / `integerOnly`）；合法设置的问题列表为空 | `test_text_lengths`、`test_number_range`、`test_valid_settings` |
+| C6 | 字段与题型不匹配 | 检查单题设置 | 单选带 minSelect；多选带 minLength；文本带 min、integerOnly；数字带 minLength、maxSelect、pattern；文本、数字题带选项 `[A]` | 直接拒绝，不静默忽略 | 7 组分别报 `validation.<该字段>`；文本、数字题带选项时只报 `options`，信息含“没有选项” | `test_field_not_matching_type_rejected`、`test_non_choice_cannot_have_options` |
+| C7 | 选项规则 | 检查单题设置 | 选项为空数组或不传；50 个、51 个选项；选项 [苹果, 空文字, 101 个字, 苹果]；100 个字的选项 | 拒绝 | 无选项只报 `options`；50 个合法、51 个报 `options`；第三组报 `options[1].text`、`options[2].text`、`options[3].text`，第三条信息含“重复”；100 个字合法 | `test_choice_requires_options`、`test_option_count_limit`、`test_option_text_rules` |
+| C8 | 修改选项时 id 稳定 | 第 1 题加规则后修改选项文字；另一题修改时新增选项 | 规则 `eq 不喜欢 → END`；选项改为 [非常喜欢, 一点也不喜欢]（保留原 id）；新增选项 `{"text": "一般"}`（不带 id） | 选项 id 不变，引用它的规则仍有效；新增选项获得新 id | 选项 id 不变、文字已更新，`logic` 与修改前完全相同；原 2 个选项 id 不变，新选项 id 匹配 `o_[a-z0-9]{6}` 且与原有 id 不同 | `test_option_ids_stable_when_renaming`、`test_add_option_in_update_gets_new_id` |
+| C9 | 发布后不能改题目 | 有 1 道文本题的问卷发布（或发布后再关闭），然后修改题目 | 添加题目、修改题目、删除题目、调整顺序 4 种操作 × 已发布/已关闭 | 409“问卷已发布，不能修改题目” | 8 种组合都是 409；已发布为 `{"code": "INVALID_STATUS", "message": "问卷已发布，不能修改题目"}`，已关闭为“问卷已关闭，不能修改题目” | `test_questions.py::test_cannot_edit_after_publish` |
+| C10 | 编辑冲突 | 带过期的 `expectedUpdatedAt` 添加题目；8 线程同时添加；固定当前时间后连续添加 2 题 | 创建问卷时的 `updatedAt`（之后已有一次保存）；8 道文本题“题0”~“题7”；时间固定为 2026-10-19 12:00 UTC | 409 `EDIT_CONFLICT`；并发添加不丢失修改；同一毫秒内 updatedAt 仍严格递增 | 409 `{"code": "EDIT_CONFLICT", "message": "问卷已被修改，请刷新后重试"}`；并发时成功次数 = 数据库中的题目数（≥1），其余结果只可能是 `EDIT_CONFLICT`；两次 `updatedAt` 满足 固定时间 < 第 1 次 < 第 2 次 | `test_expected_updated_at_stale`、`test_concurrent_edits_do_not_lose_updates`、`test_updated_at_strictly_increases` |
 
 ### D. 跳转规则的合法性检查（保存时）
 
-| 编号 | 测试点 | 步骤 | 输入 | 期望输出 | 实际结果 | 自动测试 |
+| 编号 | 测试点 | 测试步骤 | 输入 | 期望输出 | 实际结果 | 自动测试 |
 |---|---|---|---|---|---|---|
-| D1 | 13 种运算符的合法值 | 整体检查 | 单选 eq/in；多选 contains/containsAny/containsAll/equals；数字 eq/ne/gt/gte/lt/lte/between | 无错误 | 通过 | `test_survey_check.py::test_valid_operator_values` |
-| D2 | 运算符与题型不匹配 | 整体检查 | 单选用 contains、gt；多选用 eq、in；数字用 contains、like | 拒绝，指出运算符 | 通过 | `test_operator_must_match_type` |
-| D3 | 条件值不合法 | 整体检查 | 不存在的选项、空数组、重复选项、别的题的选项、`"3"`、`true`、`between [5, 1]`、`between [1]` 等 17 种 | 拒绝，字段为 `logic.rules[0].when.value` | 通过 | `test_invalid_values`、`test_option_from_other_question_rejected` |
-| D4 | 文本题不支持跳转 | 整体检查 | 文本题带 logic | 拒绝 | 通过 | `test_text_question_cannot_have_logic` |
-| D5 | 往前跳被拒绝 | 整体检查 | 第 2 题跳到第 1 题；跳到本题自己；defaultNext 往前 | “第 2 题第 1 条规则：只能跳转到后面的题目或 END（目标是第 1 题）” | 通过 | `test_backward_or_self_jump_rejected`、`test_default_next_backward_rejected` |
-| D6 | 调整顺序后变成往前跳 | 通过接口调整题目顺序 | 第 1 题规则跳到第 3 题，把第 3 题移到最前 | 422，顺序保持不变 | 通过 | `test_reorder_turns_forward_jump_into_backward`、`test_questions.py::test_reorder_causing_backward_jump_rejected` |
-| D7 | 删除被引用的题目或选项 | 删除题目；修改题目时去掉被规则引用的选项 | — | 409 `QUESTION_REFERENCED`“第 1 题「…」的第 1 条规则跳转到这道题”；422 指出哪条规则 | 通过 | `test_delete_referenced_question_rejected`、`test_delete_option_referenced_by_rule_rejected` |
-| D8 | 重叠警告 | 整体检查 | 单选两条规则含同一选项；数字 `gt 10` 与 `gte 18`；整数题 `gt 10` 与 `lt 11` | 单选、数字重叠给警告但允许保存；整数题交集无整数时不警告；多选不警告 | 通过 | `test_single_choice_overlap_warning`、`test_number_overlap_warning`、`test_number_overlap_ignored_when_no_integer_in_common`、`test_multiple_choice_overlap_not_warned` |
-| D9 | 永远不会成立的规则、永远不会显示的题 | 整体检查 | 0–120 的题用 `gt 120`；整数题 `eq 2.5`；最多选 2 项却 `containsAll` 3 项；所有规则都绕过第 2 题 | 警告“永远不会成立”“在任何情况下都不会被显示” | 通过 | `test_number_rule_never_matches`、`test_multiple_choice_rule_never_matches`、`test_unreachable_question_warning`、`test_unreachable_chain` |
-| D10 | 设计文档示例问卷 | 整体检查、通过接口搭建并发布 | 设计文档 3.4 的水果问卷 | 无错误、无警告，可以发布 | 通过 | `test_design_example_passes_without_warnings`、`test_questions.py::test_build_design_example_and_publish` |
+| D1 | 13 种运算符的合法值 | 整体检查 | 单选 `eq o_a`、`in [o_a, o_b]`；多选 `contains`、`containsAny`、`containsAll`、`equals`；数字 `eq 3`、`ne 3`、`gt 3`、`gte 3.5`、`lt -2`、`lte 0`、`between [1, 5]`、`between [5, 5]` | 无错误 | 14 组的错误列表都为空 | `test_survey_check.py::test_valid_operator_values` |
+| D2 | 运算符与题型不匹配 | 整体检查 | 单选用 `contains`、`gt`；多选用 `eq`、`in`；数字用 `contains`、`like` | 拒绝，指出运算符 | 6 组都只有 1 个错误，字段为 `logic.rules[0].when.op`，信息中含该运算符名 | `test_operator_must_match_type` |
+| D3 | 条件值不合法 | 整体检查 | 不存在的选项、单选 `eq` 给数组、`in []`、`in` 给字符串、重复选项、别的题的选项、`containsAll []`、`equals` 中混入数字、`"3"`、`true`、`null`、`between [5, 1]`、`[1]`、`[1, 2, 3]`、`3`、`[1, "5"]` 等 17 种 | 拒绝，字段为 `logic.rules[0].when.value` | 17 组都只有 1 个错误，字段为 `logic.rules[0].when.value`；引用另一题选项时错误的 `questionId` 为本题，信息含“不是本题的选项” | `test_invalid_values`、`test_option_from_other_question_rejected` |
+| D4 | 文本题不支持跳转 | 整体检查 | 文本题带 `{"rules": [], "defaultNext": null}` | 拒绝 | 第一个错误的字段为 `logic`，信息含“不支持跳转” | `test_text_question_cannot_have_logic` |
+| D5 | 往前跳被拒绝 | 整体检查 | 问卷 [文本 q1, 单选 q2, 文本 q3]：q2 规则跳到 q1；跳到 q2 自己；q2 默认去向为 q1 | “第 2 题第 1 条规则：只能跳转到后面的题目或 END（目标是第 1 题）” | 只有 1 个错误，字段为 `logic.rules[0].goto`，信息分别为“第 2 题第 1 条规则：只能跳转到后面的题目或 END（目标是第 1 题）”和“…（目标是本题自己）”；默认去向往前：字段 `logic.defaultNext`，信息含“第 2 题默认去向” | `test_backward_or_self_jump_rejected`、`test_default_next_backward_rejected` |
+| D6 | 调整顺序后变成往前跳 | 整体检查；通过接口调整题目顺序 | 第 1 题规则跳到第 3 题，把第 3 题移到最前（顺序 [q3, q1, q2]） | 422，顺序保持不变 | 原顺序检查无错误；调整后错误信息为“第 2 题第 1 条规则：只能跳转到后面的题目或 END（目标是第 1 题）”；接口返回 422 和同样的信息，数据库中题目顺序仍为 [q1, q2, q3] | `test_reorder_turns_forward_jump_into_backward`、`test_questions.py::test_reorder_causing_backward_jump_rejected` |
+| D7 | 删除被引用的题目或选项 | 删除题目；修改题目时去掉被规则引用的选项 | 第 1 题“你喜欢吃水果吗？”规则 `eq 喜欢 → 第 2 题`，然后删除第 2 题；第 1 题规则 `eq 不喜欢 → END`，然后把选项改为只剩“喜欢” | 409 `QUESTION_REFERENCED`“第 1 题「…」的第 1 条规则跳转到这道题”；422 指出哪条规则 | 删除题目 409，`code` 为 `QUESTION_REFERENCED`，message 为“第 1 题「你喜欢吃水果吗？」的第 1 条规则跳转到这道题，请先修改该规则”，数据库中仍有 2 道题；删除选项 422，字段 `logic.rules[0].when.value`，信息为“第 1 题第 1 条规则：引用的选项 o_xxxxxx 不是本题的选项（可能已被删除），请先修改该规则”，数据库中选项仍为 2 个 | `test_delete_referenced_question_rejected`、`test_delete_option_referenced_by_rule_rejected` |
+| D8 | 重叠警告 | 整体检查 | 单选 [`in [A, B] → q2`, `eq B → END`]；数字 8 组规则对（如 `gt 10` 与 `gte 18`、`lt 18` 与 `gte 18`）；整数题与非整数题的 `gt 10` 与 `lt 11`；多选 [`containsAll [1, 2]`, `contains 1`] | 单选、数字重叠给警告但允许保存；整数题交集无整数时不警告；多选不警告 | 单选：可以保存，1 条警告，字段 `logic.rules[1]`，信息含“第 1 条和第 2 条规则都包含选项「选项o_b」”；数字：`gt 10`/`gte 18`、`lte 18`/`gte 18`、`between [0,10]`/`[10,20]`、`eq 5`/`ne 6`、`ne 5`/`ne 6` 有“有重叠”警告，`lt 18`/`gte 18`、`[0,10]`/`[11,20]`、`eq 5`/`ne 5` 没有，8 组都可以保存；`gt 10`/`lt 11` 非整数题有警告，整数题无警告；多选警告列表为空 | `test_single_choice_overlap_warning`、`test_number_overlap_warning`、`test_number_overlap_ignored_when_no_integer_in_common`、`test_multiple_choice_overlap_not_warned` |
+| D9 | 永远不会成立的规则、永远不会显示的题 | 整体检查 | 数字 8 组（如 0–120 的题用 `gt 120`、整数题 `eq 2.5`）；多选 6 组（如最多选 2 项却 `containsAll` 3 项）；第 1 题规则和默认去向都跳到第 3 题；不可达的题再跳到后面的题 | 警告“永远不会成立”“在任何情况下都不会被显示” | 有“永远不会成立”警告：`gt 120`（0–120）、`lt 0`（min 0）、`between [200, 300]`（max 150）、整数题 `eq 2.5`、整数题 `between [2.1, 2.9]`、`ne 5`（min=max=5）、`equals [1]`（至少 2 项）、`equals` 4 项（最多 3 项）、`containsAll` 3 项（最多 2 项）；没有警告：`gte 120`、非整数题 `eq 2.5`、`equals` 2 项（必须 2 项）、`containsAll` 2 项（最多 2 项）、`containsAny` 3 项（最多 1 项）；不可达：警告为 [第 2 题：“第 2 题在任何情况下都不会被显示（前面的跳转都绕过了它）”]；链式不可达：警告题目为 [q2, q3]；以上都可以保存 | `test_number_rule_never_matches`、`test_multiple_choice_rule_never_matches`、`test_unreachable_question_warning`、`test_unreachable_chain` |
+| D10 | 设计文档示例问卷 | 整体检查；通过接口搭建并发布 | 设计文档 3.4 的水果问卷 | 无错误、无警告，可以发布 | 错误和警告列表都为空；接口搭建后 `warnings` 为空，发布 200，`status` 为 `published`，题目与发布前一致 | `test_design_example_passes_without_warnings`、`test_questions.py::test_build_design_example_and_publish` |
 
 ### E. 答案校验
 
-| 编号 | 测试点 | 步骤 | 输入 | 期望输出 | 实际结果 | 自动测试 |
+| 编号 | 测试点 | 测试步骤 | 输入 | 期望输出 | 实际结果 | 自动测试 |
 |---|---|---|---|---|---|---|
-| E1 | 未作答的判定 | 校验 | `null`、空白文本、多选 `[]` | 必答题“此题为必答题”；选填题视为未作答 | 通过 | `test_validation.py::test_blank_is_unanswered` |
-| E2 | 选填题作答后必须合法 | 校验 | 选填文本（至少 5 字）填“太短” | “至少 5 个字（当前 2 个）” | 通过 | `test_optional_but_answered_must_be_valid` |
-| E3 | 单选 | 校验 | 不是本题的选项、数组、数字、`""` | “选择的不是本题的选项”/“应选择一个选项” | 通过 | `test_single_invalid`、`test_single_empty_string_is_not_unanswered` |
-| E4 | 多选数量 | 校验 | 至少 2 项选 1 项；最多 3 项选 4 项；必须 2 项选 1 项或 3 项；重复选项 | 对应提示，如“必须选择 2 项（当前选了 1 项）” | 通过 | `test_multi_count_limits`、`test_multi_invalid`、`test_multi_count_boundaries_ok` |
-| E5 | 多选按选项顺序保存 | 校验 | 先选 C 再选 A | 保存为 `[A, C]` | 通过 | `test_multi_saved_in_option_order` |
-| E6 | 文本字数 | 校验 | 2–4 字的题：`a`、`" ab "`、`abcde`、`闻着臭吃着`；带肤色 emoji | 去首尾空白后按 Unicode 字符计数；汉字算 1 个；emoji 可能算多个 | 通过 | `test_text_length_boundaries`、`test_text_length_counts_unicode_code_points` |
-| E7 | 数字类型 | 校验 | `"7"`、`true`、`[7]`、NaN、Infinity | “应填写数字” | 通过 | `test_number_must_be_json_number`、`test_number_rejects_nan_and_infinity` |
-| E8 | 年龄 0–120 整数（需求原文） | 校验 | 0、120、-1、121、0.0、119.5 | -1“不能小于 0”；121“不能大于 120”；119.5“必须为整数”；`3.0` 存为 `3` | 通过 | `test_number_age_example`、`test_integer_only_converts_float` |
-| E9 | 手机号与 64 位整数范围 | 校验 | 13812345678；2⁶³−1、−2⁶³、2⁶³、10²⁰ | 手机号合法；超出 64 位范围时提示“数值超出允许范围”（不论是否 integerOnly） | 通过 | `test_phone_number_example`、`test_int64_range` |
+| E1 | 未作答的判定 | 校验（同一组答案分别对必答题和选填题） | 单选 `null`；多选 `null`、`[]`；文本 `null`、`""`、`"   \n\t "`；数字 `null` | 必答题“此题为必答题”；选填题视为未作答 | 7 组：必答时为未作答、错误“此题为必答题”；选填时为未作答、没有错误 | `test_validation.py::test_blank_is_unanswered` |
+| E2 | 选填题作答后必须合法 | 校验 | 选填文本（至少 5 字）填“太短”；选填数字（最大 10）填 11；选填多选（至少 2 项）选 1 项 | “至少 5 个字（当前 2 个）” | 分别为“至少 5 个字（当前 2 个）”“不能大于 10”“至少选择 2 项（当前选了 1 项）” | `test_optional_but_answered_must_be_valid` |
+| E3 | 单选 | 校验 | `"o_x"`（不是本题的选项）、`["o_a"]`、`1`、`true`；选填单选题填 `""` | “选择的不是本题的选项”/“应选择一个选项” | `"o_x"` →“选择的不是本题的选项”；数组、数字、布尔 →“应选择一个选项”；`""` →“选择的不是本题的选项” | `test_single_invalid`、`test_single_empty_string_is_not_unanswered` |
+| E4 | 多选数量 | 校验 | 至少 2 项选 1 项；最多 3 项选 4 项；必须 2 项选 1 项或 3 项；`["o_a", "o_a"]`；含 `o_x`；`"o_a"`；`["o_a", 1]`；5 组边界合法值 | 对应提示，如“必须选择 2 项（当前选了 1 项）” | “至少选择 2 项（当前选了 1 项）”；“最多选择 3 项（当前选了 4 项）”；“必须选择 2 项（当前选了 1 项）”“必须选择 2 项（当前选了 3 项）”；“选项不能重复”；“包含不是本题的选项”；后两组都是“应为选项 id 组成的数组”；5 组边界值（至少 2 选 2、最多 3 选 3、必须 2 选 2、无限制选 1 项或全选）都通过 | `test_multi_count_limits`、`test_multi_invalid`、`test_multi_count_boundaries_ok` |
+| E5 | 多选按选项顺序保存 | 校验 | 先选 C 再选 A：`["o_c", "o_a"]` | 保存为 `[A, C]` | 保存值为 `["o_a", "o_c"]` | `test_multi_saved_in_option_order` |
+| E6 | 文本字数 | 校验 | 2–4 字的题：`你好`、`ab`、`" ab "`、`a`、`abcd`、`abcde`、`闻着臭吃着`；最多 1 字的题：`👍🏻`（带肤色）、`👍` | 去首尾空白后按 Unicode 字符计数；汉字算 1 个；emoji 可能算多个 | `你好`、`ab`、`" ab "`、`abcd` 无错误；`a` →“至少 2 个字（当前 1 个）”；`abcde`、`闻着臭吃着` →“最多 4 个字（当前 5 个）”；`👍🏻` →“最多 1 个字（当前 2 个）”；`👍` 通过并原样保存 | `test_text_length_boundaries`、`test_text_length_counts_unicode_code_points` |
+| E7 | 数字类型 | 校验 | `"7"`、`""`、`true`、`false`、`[7]`、`{"v": 7}`；JSON 解析得到的 NaN、Infinity、-Infinity | “应填写数字” | 9 组都是“应填写数字” | `test_number_must_be_json_number`、`test_number_rejects_nan_and_infinity` |
+| E8 | 年龄 0–120 整数（需求原文） | 校验 | 0、120、-1、121、0.0、119.5；只允许整数的题填 3.0 | -1“不能小于 0”；121“不能大于 120”；119.5“必须为整数”；`3.0` 存为 `3` | 0、120、0.0 无错误；-1 →“不能小于 0”；121 →“不能大于 120”；119.5 →“必须为整数”；3.0 保存为整数 3（类型为 int） | `test_number_age_example`、`test_integer_only_converts_float` |
+| E9 | 手机号与 64 位整数范围 | 校验（integerOnly 为 true、false 各一遍） | 13812345678；2⁶³−1、−2⁶³、2⁶³、−2⁶³−1、10²⁰ | 手机号合法；超出 64 位范围时提示“数值超出允许范围”（不论是否 integerOnly） | 手机号原样保存；2⁶³−1、−2⁶³ 无错误、保存原值；2⁶³、−2⁶³−1、10²⁰ 的错误以“数值超出允许范围”开头；两种 integerOnly 设置结果相同 | `test_phone_number_example`、`test_int64_range` |
 
 ### F. 跳转路径计算
 
-| 编号 | 测试点 | 步骤 | 输入 | 期望输出 | 实际结果 | 自动测试 |
+| 编号 | 测试点 | 测试步骤 | 输入 | 期望输出 | 实际结果 | 自动测试 |
 |---|---|---|---|---|---|---|
-| F1 | 13 种运算符判断 | 纯函数 | 30 组（含 between 两端、equals 不看顺序、`3` 等于 `3.0`） | 成立/不成立正确 | 通过 | `test_jump.py::test_operator_semantics` |
-| F2 | 规则命中与默认去向 | 计算路径 | 命中规则；未命中且无默认去向；未命中有默认去向 | 跳到目标；顺序下一题；跳到默认去向 | 通过 | `test_rule_hit_jumps`、`test_no_rule_hit_without_default_goes_next`、`test_no_rule_hit_with_default_next` |
-| F3 | 多条规则命中顺序 | 计算路径 | 多选 `containsAll[A,B]`（第 1 条）与 `contains A`（第 2 条），选 A、B | 按第 1 条跳转 | 通过 | `test_first_matching_rule_wins`、`test_first_matching_rule_wins_number_overlap` |
-| F4 | 结束问卷 | 计算路径 | 规则或默认去向为 END | 路径结束，之后的答案被丢弃 | 通过 | `test_goto_end` |
-| F5 | 选填题未作答 | 计算路径 | 数字题规则 `ne 5`，值为 null | 不判断任何规则（`ne` 也不成立），走默认去向 | 通过 | `test_optional_unanswered_skips_rules` |
-| F6 | 被跳过的必答题 | 计算路径 | 第 1 题跳到第 3 题，第 2 题（必答）提交了不合法的 999 | 不报错、不校验、不保存第 2 题 | 通过 | `test_skipped_required_question_not_checked` |
-| F7 | 路径外多余答案丢弃 | 计算路径 | 结束后的答案、问卷中不存在的题目 id | 丢弃，不报错 | 通过 | `test_unknown_question_ids_discarded`、`test_fruit_survey_skipped_answers_discarded` |
-| F8 | 遇到第一个错误即停 | 计算路径 | 第 1、2 题都不合法 | 只返回第 1 题的错误；“第 N 题”是问卷中的位置 | 通过 | `test_stops_at_first_error`、`test_error_message_uses_position_in_survey_not_in_path` |
-| F9 | 预览与提交两种模式 | 计算路径 | 答案中没有某题；有该题但值为空 | 预览：停在该题作为下一题；提交：视为未作答 | 通过 | `test_preview_stops_at_first_unreached_question`、`test_preview_explicit_blank_means_skipped`、`test_submit_treats_missing_as_unanswered` |
-| F10 | 示例问卷的全部路径 | 计算路径 | 设计文档 3.4 的 5 条路径 | 不喜欢→第 5 题；选了榴莲→第 3 题；没选榴莲→第 4 题；每周 0 次→结束 | 通过 | `test_jump.py::test_fruit_survey_paths` |
-| F11 | 数据异常保护 | 计算路径 | 规则被绕过接口改成往前跳 | 抛出错误（接口返回 500），不会死循环 | 通过 | `test_backward_or_missing_target_raises`、`test_fill.py::test_corrupted_logic_returns_500_not_loop` |
+| F1 | 13 种运算符判断 | 纯函数 `evaluate(题型, 运算符, 条件值, 答案)` | 30 组（含 between 两端、equals 不看顺序、`3` 等于 `3.0`） | 成立/不成立正确 | 30 组结果全部与期望一致，例如 `equals [o1, o2]` 对 `[o2, o1]` 成立，对 `[o1, o2, o3]` 不成立；`eq 3` 对 `3.0` 成立；`between [10, 20]` 对 10、20 成立，对 9.99、21 不成立 | `test_jump.py::test_operator_semantics` |
+| F2 | 规则命中与默认去向 | 计算路径（4 题问卷，第 1 题规则 `eq B → q4`） | 答 B；答 A；答 A 且默认去向为 q3 | 跳到目标；顺序下一题；跳到默认去向 | 路径分别为 [q1, q4]、[q1, q2, q3, q4]、[q1, q3, q4] | `test_rule_hit_jumps`、`test_no_rule_hit_without_default_goes_next`、`test_no_rule_hit_with_default_next` |
+| F3 | 多条规则命中顺序 | 计算路径 | 多选规则 ① `containsAll [A, B] → q4` ② `contains A → q3`，答 [A, B] 和 [A]；数字规则 ① `gte 18 → q3` ② `between [16, 20] → q4`，答 19 和 17 | 按第 1 条跳转 | [A, B] → [q1, q4]（两条都成立，取第 1 条）；[A] → [q1, q3, q4]；19 → [q1, q3, q4]；17 → [q1, q4] | `test_first_matching_rule_wins`、`test_first_matching_rule_wins_number_overlap` |
+| F4 | 结束问卷 | 计算路径 | 规则 `eq A → END`（或默认去向为 END），答 A，同时附带第 2 题的答案“多余” | 路径结束，之后的答案被丢弃 | 两种情况：路径为 [q1]，已结束，保存的答案只有 `{q1: A}` | `test_goto_end` |
+| F5 | 选填题未作答 | 计算路径 | 选填数字题规则 `ne 5 → q4`，值为 `null`；无默认去向 / 默认去向 q3 | 不判断任何规则（`ne` 也不成立），走默认去向 | 路径分别为 [q1, q2, q3, q4]、[q1, q3, q4]，已结束，答案中没有 q1 | `test_optional_unanswered_skips_rules` |
+| F6 | 被跳过的必答题 | 计算路径 | q1 规则 `eq B → q3`，q2 为必答数字题（最大 10）；答 q1 = B、q2 = 999 | 不报错、不校验、不保存第 2 题 | 没有错误，已结束，路径为 [q1, q3]，保存的答案只有 q1 | `test_skipped_required_question_not_checked` |
+| F7 | 路径外多余答案丢弃 | 计算路径 | `{q1: "答", q_not_exist: "多余", END: "x"}`；水果问卷选“不喜欢”并附带第 2–4 题的答案（选 4 项、“短”、-1，都不合法） | 丢弃，不报错 | 第一组没有错误，答案为 `[{q1: "答"}]`；水果问卷没有错误，路径为 [q1, q5]，答案只有第 1 题 | `test_unknown_question_ids_discarded`、`test_fruit_survey_skipped_answers_discarded` |
+| F8 | 遇到第一个错误即停 | 计算路径 | 两道数字题（最大 10）答 11、12；第 1 题跳到第 3 题，第 3 题（最大 1）答 5 | 只返回第 1 题的错误；“第 N 题”是问卷中的位置 | 只有 q1 的错误，路径为 [q1]，答案为空；错误信息为“第 3 题：不能大于 1”（不是路径上的第 2 题） | `test_stops_at_first_error`、`test_error_message_uses_position_in_survey_not_in_path` |
+| F9 | 预览与提交两种模式 | 计算路径 | 预览：q1 答 B（跳到 q3，q3 未出现在答案中）；预览：选填 q1 传 `""`，再加 `q2: null`；提交：答案为 `{}` | 预览：停在该题作为下一题；提交：视为未作答 | 预览：下一题为 q3，路径 [q1, q3]，未结束，无错误；传 `""` 后下一题为 q2，再传 `q2: null` 报“第 2 题：此题为必答题”；提交：下一题为空，错误“第 2 题：此题为必答题” | `test_preview_stops_at_first_unreached_question`、`test_preview_explicit_blank_means_skipped`、`test_submit_treats_missing_as_unanswered` |
+| F10 | 示例问卷的全部路径 | 计算路径（水果问卷） | 5 组：不喜欢；喜欢 + 选了榴莲 + 理由 + 7 + 建议；同上但第 3、5 题不答；喜欢 + 没选榴莲 + 7 + 建议；喜欢 + 香蕉 + 0 | 不喜欢→第 5 题；选了榴莲→第 3 题；没选榴莲→第 4 题；每周 0 次→结束 | 5 组都没有错误且已结束；路径分别为 [q1, q5]、[q1, q2, q3, q4, q5]、[q1, q2, q3, q4, q5]、[q1, q2, q4, q5]、[q1, q2, q4]；保存的题目为路径上作答过的题 | `test_jump.py::test_fruit_survey_paths` |
+| F11 | 数据异常保护 | 计算路径；通过数据库把规则改成往前跳后提交 | 第 2 题规则目标为 q1、q2 或已不存在的 `q_gone`；水果问卷第 2 题 `defaultNext` 改为第 1 题后提交答案 | 抛出错误（接口返回 500），不会死循环 | 3 种目标都抛出 `PathError`；接口返回 500，`code` 为 `SURVEY_DATA_INVALID` | `test_backward_or_missing_target_raises`、`test_fill.py::test_corrupted_logic_returns_500_not_loop` |
 
 ### G. 填写与提交
 
-| 编号 | 测试点 | 步骤 | 输入 | 期望输出 | 实际结果 | 自动测试 |
+| 编号 | 测试点 | 测试步骤 | 输入 | 期望输出 | 实际结果 | 自动测试 |
 |---|---|---|---|---|---|---|
-| G1 | 填写者看到的问卷 | GET `/api/s/{shortCode}` | — | 题目只含 id/type/title/options/validation，不含跳转规则和 ownerId | 通过 | `test_fill.py::test_respondent_cannot_see_logic_or_owner` |
-| G2 | 填写需要登录 | 未登录访问 | — | 401 | 通过 | `test_get_requires_login` |
-| G3 | 各状态的访问 | 草稿（他人/创建者）、已关闭、已过期 | — | 他人看草稿 404“问卷尚未发布”；创建者可预览不可提交；已关闭/已过期获取问卷 200 加提示、不含题目，预览和提交 409 | 通过 | `test_draft_hidden_from_others`、`test_owner_can_preview_draft_but_not_submit`、`test_closed_or_expired` |
-| G4 | 截止/关闭后拒绝提交 | 关闭或过期后提交；再延长截止时间 | — | 409 `SURVEY_CLOSED`/`SURVEY_EXPIRED`，不保存；延长后可以提交 | 通过 | `test_close_via_api_then_submit_rejected`、`test_extended_deadline_resumes_submission` |
-| G5 | 逐题预览 | POST `/path` | 逐步增加答案 | 依次返回下一题，结束时 finished；不保存 | 通过 | `test_preview_step_by_step`、`test_preview_does_not_save` |
-| G6 | 提交时后端重算路径 | 提交 | 选“不喜欢”并提交第 2~4 题的答案（其中有不合法的） | 201，只保存第 1、5 题 | 通过 | `test_submit_discards_off_path_answers`、`test_skipped_required_not_needed` |
-| G7 | 保存规范化后的答案 | 提交 | 多选 `[榴莲, 苹果]`、文本带首尾空白、数字 `7.0`、空白文本 | 保存 `[苹果, 榴莲]`、去空白文本、整数 `7`；空白视为未作答不保存 | 通过 | `test_submit_saves_normalized_answers` |
-| G8 | 不合法的提交 | 提交 | 必答未答、字数不足、`"7"`、2⁶³ | 422“答案不合法”，只返回一个错误，不保存 | 通过 | `test_submit_invalid_rejected_and_not_saved` |
-| G9 | once 策略 | 同一人提交两次 | — | 第二次 409“你已经填写过这份问卷（每人只能填写一次）” | 通过 | `test_policy_once` |
-| G10 | latest 策略 | 同一人提交三次 | — | 三份都保留，只有最后一份 isLatest；返回本人最新答案用于预填（不返回他人的） | 通过 | `test_policy_latest`、`test_latest_answers_only_own` |
-| G11 | all 策略 | 同一人提交三次 | — | 三份都保留并都计入；isLatest 仍维护 | 通过 | `test_policy_all` |
-| G12 | 匿名仍记录填写人 | 匿名问卷提交 | — | 数据库记录 respondentId；同一人再次提交仍被拦截 | 通过 | `test_anonymous_still_records_respondent` |
-| G13 | 多人同时填写 | 10 人同时提交 | — | 全部 201 | 通过 | `test_many_users_submit_concurrently` |
-| G14 | 同一人并发提交 | 8 线程同时提交 | once / latest / all | once 只成功 1 次；latest/all 最终恰好一份最新，返回 409 的没有留下答卷 | 通过 | `test_concurrent_once_only_one_saved`、`test_concurrent_same_user_latest_switch` |
-| G15 | 第 ③ 步冲突撤销（设计文档 6.2 修正） | 模拟第 ③ 步触发唯一索引冲突 | — | 删除刚插入的答卷，返回 409“本次提交未保存” | 通过 | `test_step3_conflict_deletes_inserted_response` |
-| G16 | once 唯一索引兜底 | 模拟两次提交都通过了事先查询 | — | 插入时被部分唯一索引拦截，409，不留下答卷 | 通过 | `test_edge_cases.py::test_once_duplicate_key_fallback` |
-| G17 | 请求格式 | 提交 | 同一题出现两次；缺 value；多余字段；201 项答案 | 422 | 通过 | `test_duplicate_question_rejected`、`test_request_format`、`test_answers_limit_200` |
+| G1 | 填写者看到的问卷 | bob 登录后 GET `/api/s/{shortCode}` | 已发布的水果问卷 | 题目只含 id/type/title/options/validation，不含跳转规则和 ownerId | 每道题的字段都在 {id, type, title, options, validation} 之内，没有 `logic`；问卷没有 `ownerId`、`id`、`warnings` | `test_fill.py::test_respondent_cannot_see_logic_or_owner` |
+| G2 | 填写需要登录 | 不带令牌 GET `/api/s/{shortCode}` | 已发布的水果问卷，无令牌 | 401 | 401 | `test_get_requires_login` |
+| G3 | 各状态的访问 | 草稿：bob 和创建者 alice 分别获取、预览、提交；把问卷改为已关闭或截止时间改为过去后，bob 获取、预览、提交 | 水果问卷草稿；预览答案 `{第 1 题: 不喜欢}`；提交完整答案；`status: closed` / 截止时间为过去 | 他人看草稿 404“问卷尚未发布”；创建者可预览不可提交；已关闭/已过期获取问卷 200 加提示、不含题目，预览和提交 409 | bob 获取/预览/提交草稿都是 404 `{"code": "SURVEY_NOT_PUBLISHED", "message": "问卷尚未发布"}`；alice 获取：`preview`、`isOwner` 为 true，`accepting` 为 false，`notice` 为“预览模式：问卷尚未发布，不能提交”，5 道题，`canSubmit` 为 false；预览的下一题为第 5 题；提交 409 `SURVEY_NOT_PUBLISHED`；已关闭/已过期：获取 200，`accepting` false，`questions` 为 null，`notice` 分别为“问卷已关闭，不再接受填写”“问卷已截止，不再接受填写”；预览和提交 409，响应体为 `{"code": "SURVEY_CLOSED"/"SURVEY_EXPIRED", "message": 同 notice}`；数据库中没有答卷 | `test_draft_hidden_from_others`、`test_owner_can_preview_draft_but_not_submit`、`test_closed_or_expired` |
+| G4 | 截止/关闭后拒绝提交 | alice 通过接口关闭后 bob 提交；截止时间改为过去后 bob 提交，alice 延长截止时间后 bob 再提交 | 完整答案；新截止时间 `2099-01-01T00:00:00Z` | 409 `SURVEY_CLOSED`/`SURVEY_EXPIRED`，不保存；延长后可以提交 | 关闭后提交 409 `SURVEY_CLOSED`；过期时提交 409；延长后提交 201 | `test_close_via_api_then_submit_rejected`、`test_extended_deadline_resumes_submission` |
+| G5 | 逐题预览 | 多次 POST `/api/s/{shortCode}/path`，最后查数据库 | `{}`；`{1: 喜欢}`；`{1: 喜欢, 2: [榴莲]}`；`{…, 3: null}`；`{1: 喜欢, 2: [苹果], 4: 3}`；`{1: 不喜欢, 5: null}`；完整答案 | 依次返回下一题，结束时 finished；不保存 | 下一题依次为第 1、2、3、4、5 题，`errors` 都为空；`{1: 不喜欢, 5: null}` 返回 `{"path": [q1, q5], "nextQuestionId": null, "finished": true, "errors": []}`；预览后数据库中答卷数为 0 | `test_preview_step_by_step`、`test_preview_does_not_save` |
+| G6 | 提交时后端重算路径 | bob 提交 | `{1: 不喜欢, 2: [4 个选项（超过最多 3 项）], 3: "短", 4: -1, 5: "无", q_unknown: "多余"}`；只答 `{1: 不喜欢}` | 201，只保存第 1、5 题 | 201，返回和数据库中保存的题目都是 [第 1 题, 第 5 题]；只答第 1 题也返回 201（被跳过的必答题第 4 题不需要回答） | `test_submit_discards_off_path_answers`、`test_skipped_required_not_needed` |
+| G7 | 保存规范化后的答案 | bob 提交后查返回值和数据库 | `{1: 喜欢, 2: [榴莲, 苹果], 3: "  闻着臭吃着香  ", 4: 7.0, 5: "  "}` | 保存 `[苹果, 榴莲]`、去空白文本、整数 `7`；空白视为未作答不保存 | 201，`answers` 为 [第 1 题: 喜欢, 第 2 题: [苹果, 榴莲], 第 3 题: “闻着臭吃着香”, 第 4 题: 7]，没有第 5 题；数据库中第 4 题的值类型为整数 | `test_submit_saves_normalized_answers` |
+| G8 | 不合法的提交 | bob 提交后查数据库 | `{}`；喜欢 + [苹果]，不答第 4 题；喜欢 + [榴莲] + “好吃” + 1；第 4 题填 `"7"`；第 4 题填 2⁶³ | 422“答案不合法”，只返回一个错误，不保存 | 5 组都是 422，`code` 为 `VALIDATION_ERROR`，`message` 为“答案不合法”，errors 只有 1 条，分别以“第 1 题：此题为必答题”“第 4 题：此题为必答题”“第 3 题：至少 5 个字（当前 2 个）”“第 4 题：应填写数字”“第 4 题：数值超出允许范围”开头；数据库中没有答卷 | `test_submit_invalid_rejected_and_not_saved` |
+| G9 | once 策略 | bob 提交两次，再打开问卷 | once 水果问卷；第 1 次完整答案，第 2 次不选榴莲的答案 | 第二次 409“你已经填写过这份问卷（每人只能填写一次）” | 第 1 次 201；第 2 次 409 `{"code": "ALREADY_SUBMITTED", "message": "你已经填写过这份问卷（每人只能填写一次）"}`；数据库中 1 份；`mySubmission` 中 `count` 为 1，`canSubmit` 为 false，`reason` 以“你已经填写过”开头，`latestAnswers` 为 null | `test_policy_once` |
+| G10 | latest 策略 | bob 提交三次后打开问卷；carol 打开问卷 | latest 水果问卷；三次答案：含榴莲、不含榴莲、含榴莲 | 三份都保留，只有最后一份 isLatest；返回本人最新答案用于预填（不返回他人的） | 数据库中 3 份，`isLatest` 依次为 [false, false, true]；bob 的 `count` 为 3、`canSubmit` 为 true、`latestAnswers` 等于第 3 份的答案；carol 的 `latestAnswers` 为 null | `test_policy_latest`、`test_latest_answers_only_own` |
+| G11 | all 策略 | bob 提交三次后打开问卷 | all 水果问卷，3 次完整答案 | 三份都保留并都计入；isLatest 仍维护 | 3 次都 201；数据库中 3 份，其中 `isLatest: true` 1 份；`count` 为 3，`canSubmit` 为 true，`latestAnswers` 为 null | `test_policy_all` |
+| G12 | 匿名仍记录填写人 | bob 打开并提交匿名问卷，查数据库，再提交一次 | 匿名、once 的水果问卷，完整答案 | 数据库记录 respondentId；同一人再次提交仍被拦截 | 问卷 `settings.allowAnonymous` 为 true；数据库中答卷的 `respondentId` 等于 bob 的用户 id；第 2 次提交 409 | `test_anonymous_still_records_respondent` |
+| G13 | 多人同时填写 | 10 个线程同时提交 | 10 个用户 `user0`~`user9`，同样的完整答案 | 全部 201 | 10 个状态码都是 201；数据库中 `isLatest: true` 的答卷 10 份 | `test_many_users_submit_concurrently` |
+| G14 | 同一人并发提交 | bob 用 8 个线程同时提交 | once / latest / all 三种水果问卷，完整答案 | once 只成功 1 次；latest/all 最终恰好一份最新，返回 409 的没有留下答卷 | once：成功 1 次，其余都是 `ALREADY_SUBMITTED`，数据库中 1 份；latest、all：结果只有成功和 `SUBMIT_CONFLICT` 两种，`isLatest: true` 恰好 1 份，答卷总数 = 成功次数 | `test_concurrent_once_only_one_saved`、`test_concurrent_same_user_latest_switch` |
+| G15 | 第 ③ 步冲突撤销（设计文档 6.2 修正） | bob 先成功提交 1 份；把第 ③ 步（标记为最新）替换为抛出唯一索引冲突，再提交 | all 水果问卷，完整答案；模拟的 `DuplicateKeyError` | 删除刚插入的答卷，返回 409“本次提交未保存” | 409 `{"code": "SUBMIT_CONFLICT", "message": "检测到同时提交，本次提交未保存，请稍后重试"}`；数据库中只剩第 1 次的答卷 | `test_step3_conflict_deletes_inserted_response` |
+| G16 | once 唯一索引兜底 | bob 先提交 1 份；让“是否已提交”的事先查询返回空，再提交同样的答案 | once 水果问卷，答案 `{第 1 题: 不喜欢}` | 插入时被部分唯一索引拦截，409，不留下答卷 | 服务层抛出错误码 `ALREADY_SUBMITTED`（接口对应 409，见 G9）；数据库中仍只有 1 份 | `test_edge_cases.py::test_once_duplicate_key_fallback` |
+| G17 | 请求格式 | POST `/path` 或 `/responses` | 同一题出现两次（两个接口都试）；`{}`；缺 `value`；缺 `questionId`；多余字段 `extra`；`answers` 为字符串；201 项、200 项答案 | 422 | 同一题两次：422，errors 为 `[{"field": "answers", "questionId": <第 1 题>, "message": "第 1 题的答案出现了多次"}]`，没有保存；格式错误都是 422，分别指出 `answers`、`answers.0.value`、`answers.0.questionId`、`answers.0.extra`、`answers`；201 项 422，errors 含 `{"field": "answers", "message": "数量超出上限"}`；200 项 200 | `test_duplicate_question_rejected`、`test_request_format`、`test_answers_limit_200` |
 
 ### H. 统计
 
-固定数据：设计文档 3.4 的问卷，4 人按不同路径填写（张三：喜欢→苹果、榴莲→理由→7→建议；李四：喜欢→苹果、香蕉→3；王五：不喜欢→建议；赵六：喜欢→香蕉→0）。
+固定数据：水果问卷，4 人按不同路径填写（张三：喜欢→[苹果, 榴莲]→“闻着臭吃着香”→7→“多吃水果”；李四：喜欢→[苹果, 香蕉]→3；王五：不喜欢→“不爱吃”；赵六：喜欢→[香蕉]→0）。
 
-| 编号 | 测试点 | 步骤 | 输入 | 期望输出 | 实际结果 | 自动测试 |
+| 编号 | 测试点 | 测试步骤 | 输入 | 期望输出 | 实际结果 | 自动测试 |
 |---|---|---|---|---|---|---|
-| H1 | 单选统计 | GET `/stats` | 固定数据 | 喜欢 3、不喜欢 1；答卷数 4、作答人数 4 | 通过 | `test_stats.py::test_whole_survey_stats` |
-| H2 | 多选统计 | 同上 | 同上 | 苹果 2、香蕉 2、西瓜 0、榴莲 1（按选项顺序，没人选的为 0）；答卷数 3（王五跳过） | 通过 | 同上 |
-| H3 | 填空统计 | 同上 | 同上 | 文本列出全部内容（新的在前）；数字 `[0, 3, 7]`，平均值 10/3 | 通过 | 同上；`test_number_average_with_floats` |
-| H4 | 单题统计 | GET `/stats/questions/{qid}` | — | 与整份统计中该题一致；填空题可分页查看全部 | 通过 | `test_single_question_stats`、`test_question_items_pagination`、`test_whole_survey_lists_20_items_single_question_lists_all` |
-| H5 | 三种策略的口径 | 张三改答案后统计 | latest / all / once | latest 只算新答案（喜欢 2、不喜欢 2）；all 答卷数 5、作答人数 4；once 第二次不计入 | 通过 | `test_policy_latest_counts_only_latest`、`test_policy_all_counts_every_submission`、`test_policy_once_second_submission_not_counted` |
-| H6 | 三处数字一致 | 比较问卷列表、统计、答卷列表 | 三种策略 | 答卷数完全一致 | 通过 | `test_counts_consistent_across_endpoints` |
-| H7 | 匿名不返回填写人 | 统计、单题统计、答卷列表 | 匿名问卷 | 返回内容中不出现任何用户名、用户 id、username/respondentId 字段；作答人数仍返回 | 通过 | `test_anonymous_hides_respondents_everywhere` |
-| H8 | 实名显示用户名 | 同上 | 实名问卷 | 填空内容与答卷列表显示用户名，不含 respondentId、passwordHash | 通过 | `test_non_anonymous_shows_usernames` |
-| H9 | 空问卷与权限 | 无答卷时统计；他人访问 | — | 全为 0、平均值 null；他人 404、未登录 401 | 通过 | `test_empty_survey_stats`、`test_only_owner_can_view` |
-| H10 | 聚合管道结构 | 检查管道 | — | 四种题型共用前三步；匿名管道不含 `$lookup`、不输出 respondentId；第一步使用索引（IXSCAN） | 通过 | `test_question_pipelines_share_first_three_stages`、`test_anonymous_pipelines_have_no_lookup`、`test_question_stats_uses_index` |
+| H1 | 单选统计 | 4 人提交后，创建者 GET `/api/surveys/{id}/stats` | 固定数据（once 策略） | 喜欢 3、不喜欢 1；答卷数 4、作答人数 4 | `totalResponses` 4、`totalRespondents` 4，口径为“全部答卷（每人一份）”；第 1 题 喜欢 3、不喜欢 1，答卷数/作答人数为 4/4，没有 `items`、`average` | `test_stats.py::test_whole_survey_stats` |
+| H2 | 多选统计 | 同上 | 同上 | 苹果 2、香蕉 2、西瓜 0、榴莲 1（按选项顺序，没人选的为 0）；答卷数 3（王五跳过） | 选项顺序为 [苹果, 香蕉, 西瓜, 榴莲]，计数 2、2、0、1；答卷数/作答人数为 3/3 | 同上 |
+| H3 | 填空统计 | 同上；另建一份数字题问卷，3 人填写后统计 | 同上；身高 1.5、2、1.75 | 文本列出全部内容（新的在前）；数字 `[0, 3, 7]`，平均值 10/3 | 第 3 题内容为 [“闻着臭吃着香”]，答卷数和条数都是 1；第 4 题内容为 [0, 3, 7]，平均值 ≈ 3.333（10/3），3/3；第 5 题内容为 [“不爱吃”, “多吃水果”]，答卷数 2；身高平均值 1.75 | 同上；`test_number_average_with_floats` |
+| H4 | 单题统计 | GET `/stats/questions/{qid}` | 固定数据的第 2 题；第 4 题 `offset=1&limit=2`；另一份问卷 25 条文本答案，整份统计与 `limit=200` 的单题统计 | 与整份统计中该题一致；填空题可分页查看全部 | 200，`totalResponses` 4，`question` 与整份统计中的第 2 题完全相同；分页内容为 [3, 7]，`itemsTotal` 3，offset/limit 为 1/2，平均值仍为 10/3；整份统计列出 20 条、`itemsTotal` 25，单题统计列出 25 条 | `test_single_question_stats`、`test_question_items_pagination`、`test_whole_survey_lists_20_items_single_question_lists_all` |
+| H5 | 三种策略的口径 | 4 人提交后张三再提交一次，然后统计 | 张三的新答案：不喜欢 → “改主意了”；latest / all / once 三种问卷 | latest 只算新答案（喜欢 2、不喜欢 2）；all 答卷数 5、作答人数 4；once 第二次不计入 | latest：答卷数/人数 4/4，喜欢 2、不喜欢 2，苹果 1、香蕉 2、西瓜 0、榴莲 0，第 3 题答卷数 0，第 4 题平均 1.5，第 5 题内容为 [“改主意了”, “不爱吃”]；all：答卷数 5、人数 4，喜欢 3、不喜欢 2，第 1 题 5/4，第 5 题 3/2；once：张三第二次提交 409，喜欢 3、不喜欢 1 | `test_policy_latest_counts_only_latest`、`test_policy_all_counts_every_submission`、`test_policy_once_second_submission_not_counted` |
+| H6 | 三处数字一致 | 4 人提交后李四再提交一次，比较问卷列表、统计、答卷列表 | once / latest / all 三种问卷 | 答卷数完全一致 | 三处（`responseCount`、`totalResponses`、答卷列表 `total`）相同：once 4、latest 4、all 5 | `test_counts_consistent_across_endpoints` |
+| H7 | 匿名不返回填写人 | 创建者获取整份统计、第 3 题单题统计、答卷列表 | 匿名的固定数据问卷 | 返回内容中不出现任何用户名、用户 id、username/respondentId 字段；作答人数仍返回 | 3 个响应的 JSON 中都找不到 4 位填写人的用户名和用户 id，也没有 `username`、`respondentId`、`respondent` 字段；`totalRespondents` 为 4，第 1 题 `respondentCount` 为 4 | `test_anonymous_hides_respondents_everywhere` |
+| H8 | 实名显示用户名 | 创建者获取统计和答卷列表 | 实名的固定数据问卷 | 填空内容与答卷列表显示用户名，不含 respondentId、passwordHash | 第 5 题内容（值, 用户名）为 [(“不爱吃”, wang_wu), (“多吃水果”, zhang_san)]；答卷列表用户名顺序为 [zhao_liu, wang_wu, li_si, zhang_san]；答卷列表中没有 `respondentId`、`passwordHash` | `test_non_anonymous_shows_usernames` |
+| H9 | 空问卷与权限 | 无答卷时统计；bob 和未登录用户访问统计、单题统计、答卷列表 | 没有答卷的水果问卷草稿；已发布水果问卷 + bob 的令牌 / 无令牌 | 全为 0、平均值 null；他人 404、未登录 401 | 答卷数、人数 0；喜欢 0、不喜欢 0，答卷数/人数 0；第 3 题内容为空、`itemsTotal` 0；第 4 题 `average` 为 null；bob 访问 3 个接口都是 404 `SURVEY_NOT_FOUND`；未登录 401 | `test_empty_survey_stats`、`test_only_owner_can_view` |
+| H10 | 聚合管道结构 | 生成管道并检查；对固定数据执行 explain | 4 种题型的统计管道；匿名与实名的文本、数字、答卷列表管道；单选题统计第一步的 `$match` | 四种题型共用前三步；匿名管道不含 `$lookup`、不输出 respondentId；第一步使用索引（IXSCAN） | 4 个管道的前三步与公共的前三步完全相同；匿名管道中没有 `$lookup`，实名管道中有；所有 `$project`（含 `$facet` 内的）都不含 `respondentId`；查询计划中有 `IXSCAN` | `test_question_pipelines_share_first_three_stages`、`test_anonymous_pipelines_have_no_lookup`、`test_question_stats_uses_index` |
 
 ### I. 数据库 schema 与索引
 
-| 编号 | 测试点 | 步骤 | 输入 | 期望输出 | 实际结果 | 自动测试 |
+| 编号 | 测试点 | 测试步骤 | 输入 | 期望输出 | 实际结果 | 自动测试 |
 |---|---|---|---|---|---|---|
-| I1 | 集合与校验规则 | 初始化后检查集合 | — | 三个集合都有 `$jsonSchema`，`validationLevel: moderate` | 通过 | `test_db.py::test_collections_created_with_validator` |
-| I2 | 不合法文档被拒 | 直接写数据库 | 缺 passwordHash、非法状态、ownerId 为字符串、非法提交策略、非法题型、version=0、isLatest 为字符串等 10 种 | 写入失败（错误码 121） | 通过 | `test_invalid_documents_rejected` |
-| I3 | 允许新增字段（为第二阶段预留） | 写入带额外字段的文档 | 选项配图、作答用时、人数上限 | 写入成功 | 通过 | `test_extra_fields_allowed_for_future_extension` |
-| I4 | 索引与设计一致 | 检查索引 | — | 字段、唯一性、部分过滤条件与设计文档第 5 节一致；已删除的普通索引不存在 | 通过 | `test_indexes_match_design` |
-| I5 | 部分唯一索引 | 写入答卷 | 同一人两份 isLatest:true；多份 false | 前者被拒；后者允许；不同人/不同问卷互不影响 | 通过 | `test_only_one_latest_response_per_user`、`test_multiple_non_latest_responses_allowed` |
-| I6 | 64 位整数存储 | 写入答卷 | 2⁶³−1、−2⁶³、手机号；2⁶³、10²⁰ | 前者原样读回；后者无法写入（说明应用层必须提前拒绝） | 通过 | `test_int64_boundary_values_can_be_stored`、`test_int_beyond_int64_cannot_be_stored` |
-| I7 | 初始化幂等 | 重复执行初始化 | — | 不报错、索引不重复 | 通过 | `test_ensure_schema_is_idempotent`、`test_edge_cases.py::test_init_db_script` |
+| I1 | 集合与校验规则 | 测试库初始化后读取集合信息 | 集合 `users`、`surveys`、`responses` | 三个集合都有 `$jsonSchema`，`validationLevel: moderate` | 3 个集合都存在，`validator` 中有 `$jsonSchema`，`validationLevel` 为 `moderate`，`validationAction` 为 `error` | `test_db.py::test_collections_created_with_validator` |
+| I2 | 不合法文档被拒 | 绕过应用直接插入数据库 | 用户缺 passwordHash、时间存成字符串；问卷状态 `open`、ownerId 为字符串、提交策略 `daily`、缺 allowAnonymous、题型 `rating`、version=0；答卷 isLatest 为 `"yes"`、答案缺 questionId，共 10 种 | 写入失败（错误码 121） | 10 种都抛出 `WriteError`，错误码 121 | `test_invalid_documents_rejected` |
+| I3 | 允许新增字段（为第二阶段预留） | 直接插入带额外字段的文档 | 问卷 `settings.maxResponses: 100`、选项 `media`；答案 `durationMs: 1200` | 写入成功 | 两次插入都成功，没有异常 | `test_extra_fields_allowed_for_future_extension` |
+| I4 | 索引与设计一致 | 读取三个集合的 `index_information()` | 初始化后的测试库 | 字段、唯一性、部分过滤条件与设计文档第 5 节一致；已删除的普通索引不存在 | `username_unique` {username: 1} 唯一；`shortCode_unique` {shortCode: 1} 唯一；`ownerId_createdAt` {ownerId: 1, createdAt: -1}；`surveyId_submittedAt` {surveyId: 1, submittedAt: -1}；`surveyId_respondentId_latest_unique` {surveyId: 1, respondentId: 1} 唯一，`partialFilterExpression` 为 {isLatest: true}；`answers_questionId` {answers.questionId: 1}；不存在非唯一的 {surveyId, respondentId} 索引 | `test_indexes_match_design` |
+| I5 | 部分唯一索引 | 直接插入答卷 | 同一人同一问卷两份 `isLatest: true`；一份 true + 两份 false；不同人、不同问卷各一份 true | 前者被拒；后者允许；不同人/不同问卷互不影响 | 第 2 份 true 抛出 `DuplicateKeyError`；一份 true + 两份 false 共 3 份都写入；不同人/不同问卷的 3 份 true 都写入 | `test_only_one_latest_response_per_user`、`test_multiple_non_latest_responses_allowed`、`test_latest_unique_is_per_user_and_per_survey` |
+| I6 | 64 位整数存储 | 直接插入答卷并读回 | 2⁶³−1、−2⁶³、13812345678；2⁶³、−2⁶³−1、10²⁰ | 前者原样读回；后者无法写入（说明应用层必须提前拒绝） | 前 3 个值读回与写入相同；后 3 个值插入时抛出 `OverflowError` | `test_int64_boundary_values_can_be_stored`、`test_int_beyond_int64_cannot_be_stored` |
+| I7 | 初始化幂等 | 连续执行 `ensure_schema` 两次；运行 `scripts/init_db.py` | 已初始化的测试库 | 不报错、索引不重复 | 前后 3 个集合的索引名列表相同；脚本输出含“初始化完成”和 `surveyId_respondentId_latest_unique` | `test_ensure_schema_is_idempotent`、`test_edge_cases.py::test_init_db_script` |
 
 ### J. 示例数据
 
-| 编号 | 测试点 | 步骤 | 输入 | 期望输出 | 实际结果 | 自动测试 |
+| 编号 | 测试点 | 测试步骤 | 输入 | 期望输出 | 实际结果 | 自动测试 |
 |---|---|---|---|---|---|---|
-| J1 | 生成示例问卷 | `python -m scripts.seed_demo` | — | “大学生饮食习惯调查”已发布，12 题，无错误无警告，覆盖四种题型和三类跳转 | 通过 | `test_seed_demo.py::test_seed_creates_published_demo_survey`、`test_seed_covers_types_jumps_and_validations` |
-| J2 | 不同路径的答卷 | 同上 | — | 13 份答卷、12 位填写人；选“否”的只答第 1 题；各路径符合跳转规则 | 通过 | `test_seed_responses_follow_different_paths` |
-| J3 | 重复运行与重置 | 运行两次；`--reset` | — | 第二次不重复生成；重置只删示例问卷，不碰其他数据 | 通过 | `test_seed_is_idempotent`、`test_seed_reset_recreates`、`test_seed_demo_command_line` |
-| J4 | 固定的访问链接 `Food26` | 生成；重置；把已有示例问卷的链接改成随机值后再运行；`Food26` 被其他问卷占用时运行；脚本与接口指定链接代码 | `Food26`；`Ab12Cd`；`Food2`、`Food_6` 等不合法代码；接口请求带 `shortCode` | 链接固定为 `Food26`，重置后不变；旧的随机链接被改为 `Food26` 且 13 份答卷保留；被占用时报错停止、不新建也不改动；不合法代码 422；重复代码 409 `SHORT_CODE_TAKEN`；接口忽略请求中的 `shortCode`（仍随机生成） | 通过 | `test_seed_demo.py::test_seed_uses_fixed_short_code`、`test_seed_reset_keeps_fixed_short_code`、`test_seed_migrates_old_random_code_and_keeps_responses`、`test_seed_refuses_when_fixed_code_taken`、`test_seed_migration_refuses_when_fixed_code_taken`；`test_surveys.py::test_create_with_fixed_short_code`、`test_create_with_invalid_fixed_short_code`、`test_api_ignores_short_code_field` |
+| J1 | 生成示例问卷 | 在空的测试库上运行 `seed_demo`，检查问卷 | 空的测试库，无参数 | “大学生饮食习惯调查”已发布，12 题，无错误无警告，覆盖四种题型和三类跳转 | `created` 为 true；标题为“大学生饮食习惯调查”，`status` 为 `published`，`settings` 为 {不匿名, latest, 不限截止}，12 道题；整体检查的错误和警告都为空；链接以 `/survey/<shortCode>` 结尾；四种题型齐全；规则含单选 `eq`、多选 `contains`、数字 `gte`，并有跳到 END 的规则；第 2 题为 0–120 必答整数，第 11 题必须选 2 项，第 9 题至少 5 字 | `test_seed_demo.py::test_seed_creates_published_demo_survey`、`test_seed_covers_types_jumps_and_validations` |
+| J2 | 不同路径的答卷 | 同上，再按用户名读取每人最新一份答卷保存的题号 | 脚本内置的 13 份答卷（demo_s01~s12） | 13 份答卷、12 位填写人；选“否”的只答第 1 题；各路径符合跳转规则 | 13 份答卷、12 位填写人；demo_s03 为 [1]；demo_s12 为 [1, 2, 3, 4, 6, 7, 10, 11, 12]；demo_s09 为 [1, 2, 3, 4, 5, 7, 8, 9, 10, 11]；demo_s04 为 [1, 2, 3, 4, 5, 7, 8, 10, 11]；demo_s02（重新提交过）为 [1, 2, 3, 4, 6, 7, 8, 10, 11, 12]；`isLatest: true` 12 份 | `test_seed_responses_follow_different_paths` |
+| J3 | 重复运行与重置 | 连续运行两次；有另一份问卷 `keepMe` 时用 `--reset` 运行；命令行运行两次 | 无参数；`reset=True`；`python -m scripts.seed_demo` | 第二次不重复生成；重置只删示例问卷，不碰其他数据 | 第 2 次 `created` 为 false，问卷 id 相同；示例问卷 1 份、答卷 13 份、`demo_` 用户 13 个；重置后 `created` 为 true、问卷 id 改变，示例问卷 1 份、答卷 13 份，`keepMe` 问卷仍在；命令行输出含“已生成示例问卷”“示例问卷已存在，未重复生成”“/survey/”“demo_owner / demo123456”，库中问卷 1 份 | `test_seed_is_idempotent`、`test_seed_reset_recreates`、`test_seed_demo_command_line` |
+| J4 | 固定的访问链接 `Food26` | 生成；重置；把已有示例问卷的链接改成随机值后再运行；`Food26` 被其他问卷占用时运行；脚本与接口指定链接代码 | `Food26`；`Ab12Cd`；`Food2`、`Food267`、`Food_6`、`食物问卷01` 等不合法代码；接口请求带 `"shortCode": "Food26"` | 链接固定为 `Food26`，重置后不变；旧的随机链接被改为 `Food26` 且 13 份答卷保留；被占用时报错停止、不新建也不改动；不合法代码 422；重复代码 409 `SHORT_CODE_TAKEN`；接口忽略请求中的 `shortCode`（仍随机生成） | 生成后 `short_code` 为 `Food26`，链接以 `/survey/Food26` 结尾；重置后仍为 `Food26`；从 `Ab12Cd` 迁移：`created` 为 false、问卷 id 不变、`short_code` 为 `Food26`、`old_short_code` 为 `Ab12Cd`、答卷 13 份；被占用：抛出 `SeedError`（信息含“已被另一份问卷《别人的问卷》占用”），示例问卷 0 份，那份问卷标题不变；迁移时被占用：抛出 `SeedError`，示例问卷链接仍为 `Ab12Cd`；服务层重复指定 `Food26` 抛出 `SHORT_CODE_TAKEN`；4 个不合法代码抛出 `VALIDATION_ERROR`；接口返回的 shortCode 不是 `Food26` | `test_seed_demo.py::test_seed_uses_fixed_short_code`、`test_seed_reset_keeps_fixed_short_code`、`test_seed_migrates_old_random_code_and_keeps_responses`、`test_seed_refuses_when_fixed_code_taken`、`test_seed_migration_refuses_when_fixed_code_taken`；`test_surveys.py::test_create_with_fixed_short_code`、`test_create_with_invalid_fixed_short_code`、`test_api_ignores_short_code_field` |
 
 ## 四、基于本人手工创建的问卷的端到端测试
 
@@ -236,6 +241,16 @@ python -m scripts.sport_survey_e2e --skip-stats       # 不核对统计
 
 重复运行时已提交过的账号不再提交（只做核对）。任何一项不一致时退出码为 1；问卷结构或路径与预期不一致时，在提交任何答卷之前就停止。
 
+**运行记录**：
+
+| 时间 | 命令 | 结果 |
+|---|---|---|
+| 2026-10-21，第一次运行 | `--skip-stats` | 72 项全部一致（问卷结构 14、路径 15、提交与保存的题目 30、不合法答卷 13）；15 份答卷均提交成功 |
+| 2026-10-21，第二次运行 | `--skip-stats` | 本次提交 0 份，已提交过而跳过 15 份；其余 57 项全部一致；这份问卷的答卷总数为 16（原有 1 份 + 15 份），没有重复提交 |
+| 2026-10-21 11:22，开发者输入创建者密码运行 | `--report docs/sport_survey_e2e_result.md` | 100 项全部一致（问卷结构 14、路径 15、保存的题目 15、不合法答卷 13、统计 43）；完整结果表见 [docs/sport_survey_e2e_result.md](sport_survey_e2e_result.md) |
+
+下表的“实际结果”中，提交状态码来自第一次运行，其余数值来自 11:22 那次运行的结果文件。
+
 ### 1. 问卷的实际规则（运行前从数据库只读读出，与开发者的描述核对）
 
 | 题 | 题型与题目 | 校验 | 跳转规则 |
@@ -249,53 +264,39 @@ python -m scripts.sport_survey_e2e --skip-stats       # 不核对统计
 | 7 | 多选：你不常运动的主要原因是？ | 必答，1–2 项 | — |
 | 8 | 文本：你对学校的体育设施有什么建议？ | 选填，5–200 字 | — |
 
-### 2. 测试数据：15 位填写人（答案写死在脚本中，不用随机数）
+### 2. 测试用例
 
-| 账号 | 答案 | 期望路径 | 覆盖的跳转 |
-|---|---|---|---|
-| sport_u01 | 20 / 每周 3 次及以上 / 跑步、健身 / 1–2 小时 / 60 / 够 / 有建议 | 1→2→3→4→5→6→8 | 选健身 → 第 4 题 |
-| sport_u02 | 19 / 每周 1–2 次 / 篮球、羽毛球 / 90 / 一般 | 1→2→3→5→6→8 | 篮球 + 羽毛球 → 跳过第 4 题 |
-| sport_u03 | 21 / 每周 1–2 次 / 跑步 / 40 / 不够 / 有建议 | 1→2→3→5→6→8 | 其他 → 第 5 题 |
-| sport_u04 | 18 / 基本不运动 / 没时间、太累 | 1→2→7→8 | 基本不运动 → 第 7 题 |
-| sport_u05 | 22 / 每周 3 次及以上 / 健身、游泳 / 30–60 分钟 / 75 / 够 / 有建议 | 1→2→3→4→5→6→8 | 选健身 → 第 4 题 |
-| sport_u06 | 20 / 每月几次 / 没兴趣 / 有建议 | 1→2→7→8 | 每月几次 → 第 7 题 |
-| sport_u07 | 19 / 每周 1–2 次 / 羽毛球 / 10 / 有建议 | 1→2→3→5→8 | 第 5 题 ≤ 15 → 第 8 题 |
-| sport_u08 | 23 / 每周 1–2 次 / 篮球、羽毛球、健身 / 120 / 一般 | 1→2→3→5→6→8 | **规则顺序**：同时满足两条，按第一条跳过第 4 题 |
-| sport_u09 | 17 / 每周 3 次及以上 / 跑步、篮球 / 50 / 够 | 1→2→3→5→6→8 | |
-| sport_u10 | 24 / 每月几次 / 没时间、没有合适场地 / 有建议 | 1→2→7→8 | |
-| sport_u11 | 20 / 每周 1–2 次 / 健身 / 30 分钟以内 / **15** | 1→2→3→4→5→8 | **边界**：正好 15 → 第 8 题 |
-| sport_u12 | 21 / 每周 3 次及以上 / 跑步、羽毛球、其他 / 45 / 不够 / 有建议 | 1→2→3→5→6→8 | |
-| sport_u13 | 15 / 基本不运动 / 没兴趣、其他 | 1→2→7→8 | |
-| sport_u14 | 22 / 每周 1–2 次 / 游泳 / 30 / 一般 | 1→2→3→5→6→8 | |
-| sport_u15 | 16 / 每月几次 / 太累 | 1→2→7→8 | |
+答案写死在脚本中，不用随机数。“答案”一列按题号顺序列出，第 8 题“有建议”表示填了一句 5 字以上的建议（具体文字见脚本），没写的题表示不作答。
 
-第 8 题（选填）7 人填写、8 人不填。
+| 编号 | 测试点 | 测试步骤 | 输入 | 期望输出 | 实际结果 |
+|---|---|---|---|---|---|
+| P1 | 问卷结构 | 用 `sport_u01` 登录，GET `/api/s/Z2alVy`，核对题目和选项文字 | 问卷 `Z2alVy` | 8 道题；8 个题目和 5 道选择题的选项文字与上表一致 | 14 项全部一致：题目数 8，8 个题目、5 组选项文字与期望完全相同 |
+| P2 | 选健身 → 第 4 题 | 每个账号：登录 → POST `/path` 预览路径 → POST `/responses` 提交 → GET 问卷读取本人最新答卷，核对保存的题目（P2–P16 相同） | `sport_u01`：20 / 每周 3 次及以上 / 跑步、健身 / 1–2 小时 / 60 / 够 / 有建议 | 路径 1→2→3→4→5→6→8；201；保存 1→2→3→4→5→6→8 | 路径 1→2→3→4→5→6→8；201；保存 1→2→3→4→5→6→8 |
+| P3 | 篮球 + 羽毛球 → 跳过第 4 题 | 同 P2 | `sport_u02`：19 / 每周 1–2 次 / 篮球、羽毛球 / 90 / 一般 | 路径 1→2→3→5→6→8；201；保存 1→2→3→5→6 | 路径 1→2→3→5→6→8；201；保存 1→2→3→5→6 |
+| P4 | 第 3 题规则都不成立 → 第 5 题 | 同 P2 | `sport_u03`：21 / 每周 1–2 次 / 跑步 / 40 / 不够 / 有建议 | 路径 1→2→3→5→6→8；201；保存 1→2→3→5→6→8 | 路径 1→2→3→5→6→8；201；保存 1→2→3→5→6→8 |
+| P5 | 基本不运动 → 第 7 题 | 同 P2 | `sport_u04`：18 / 基本不运动 / 没时间、太累 | 路径 1→2→7→8；201；保存 1→2→7 | 路径 1→2→7→8；201；保存 1→2→7 |
+| P6 | 选健身 → 第 4 题 | 同 P2 | `sport_u05`：22 / 每周 3 次及以上 / 健身、游泳 / 30–60 分钟 / 75 / 够 / 有建议 | 路径 1→2→3→4→5→6→8；201；保存 1→2→3→4→5→6→8 | 路径 1→2→3→4→5→6→8；201；保存 1→2→3→4→5→6→8 |
+| P7 | 每月几次 → 第 7 题 | 同 P2 | `sport_u06`：20 / 每月几次 / 没兴趣 / 有建议 | 路径 1→2→7→8；201；保存 1→2→7→8 | 路径 1→2→7→8；201；保存 1→2→7→8 |
+| P8 | 第 5 题 ≤ 15 → 第 8 题 | 同 P2 | `sport_u07`：19 / 每周 1–2 次 / 羽毛球 / 10 / 有建议 | 路径 1→2→3→5→8；201；保存 1→2→3→5→8 | 路径 1→2→3→5→8；201；保存 1→2→3→5→8 |
+| P9 | **规则顺序**：同时满足两条，按第一条跳过第 4 题 | 同 P2 | `sport_u08`：23 / 每周 1–2 次 / 篮球、羽毛球、健身 / 120 / 一般 | 路径 1→2→3→5→6→8；201；保存 1→2→3→5→6 | 路径 1→2→3→5→6→8；201；保存 1→2→3→5→6 |
+| P10 | 第 3 题规则都不成立 → 第 5 题 | 同 P2 | `sport_u09`：17 / 每周 3 次及以上 / 跑步、篮球 / 50 / 够 | 路径 1→2→3→5→6→8；201；保存 1→2→3→5→6 | 路径 1→2→3→5→6→8；201；保存 1→2→3→5→6 |
+| P11 | 每月几次 → 第 7 题 | 同 P2 | `sport_u10`：24 / 每月几次 / 没时间、没有合适场地 / 有建议 | 路径 1→2→7→8；201；保存 1→2→7→8 | 路径 1→2→7→8；201；保存 1→2→7→8 |
+| P12 | **边界**：第 5 题正好 15 → 第 8 题 | 同 P2 | `sport_u11`：20 / 每周 1–2 次 / 健身 / 30 分钟以内 / 15 | 路径 1→2→3→4→5→8；201；保存 1→2→3→4→5 | 路径 1→2→3→4→5→8；201；保存 1→2→3→4→5 |
+| P13 | 第 3 题规则都不成立 → 第 5 题 | 同 P2 | `sport_u12`：21 / 每周 3 次及以上 / 跑步、羽毛球、其他 / 45 / 不够 / 有建议 | 路径 1→2→3→5→6→8；201；保存 1→2→3→5→6→8 | 路径 1→2→3→5→6→8；201；保存 1→2→3→5→6→8 |
+| P14 | 基本不运动 → 第 7 题 | 同 P2 | `sport_u13`：15 / 基本不运动 / 没兴趣、其他 | 路径 1→2→7→8；201；保存 1→2→7 | 路径 1→2→7→8；201；保存 1→2→7 |
+| P15 | 第 3 题规则都不成立 → 第 5 题 | 同 P2 | `sport_u14`：22 / 每周 1–2 次 / 游泳 / 30 / 一般 | 路径 1→2→3→5→6→8；201；保存 1→2→3→5→6 | 路径 1→2→3→5→6→8；201；保存 1→2→3→5→6 |
+| P16 | 每月几次 → 第 7 题 | 同 P2 | `sport_u15`：16 / 每月几次 / 太累 | 路径 1→2→7→8；201；保存 1→2→7 | 路径 1→2→7→8；201；保存 1→2→7 |
+| P17 | 年龄超过上限 | 用 `sport_invalid` 登录后提交；P17–P22 都在合法答案上只改一处 | 合法答案 A（21 / 每周 1–2 次 / 跑步 / 40 / 不够），第 1 题改为 31 | 422，“第 1 题：不能大于 30” | 422，“第 1 题：不能大于 30” |
+| P18 | 年龄低于下限 | 同 P17 | 合法答案 A，第 1 题改为 13 | 422，“第 1 题：不能小于 14” | 422，“第 1 题：不能小于 14” |
+| P19 | 年龄带小数 | 同 P17 | 合法答案 A，第 1 题改为 18.5 | 422，“第 1 题：必须为整数” | 422，“第 1 题：必须为整数” |
+| P20 | 多选超过最多项数 | 同 P17 | 合法答案 A，第 3 题改为 跑步、篮球、游泳、其他 | 422，“第 3 题：最多选择 3 项（当前选了 4 项）” | 422，“第 3 题：最多选择 3 项（当前选了 4 项）” |
+| P21 | 多选超过最多项数 | 同 P17 | 合法答案 B（18 / 基本不运动 / 没时间），第 7 题改为 没时间、没兴趣、太累 | 422，“第 7 题：最多选择 2 项（当前选了 3 项）” | 422，“第 7 题：最多选择 2 项（当前选了 3 项）” |
+| P22 | 文本少于最少字数 | 同 P17 | 合法答案 A，第 8 题填“很好” | 422，“第 8 题：至少 5 个字（当前 2 个）” | 422，“第 8 题：至少 5 个字（当前 2 个）” |
+| P23 | 不合法答卷都没有保存 | P17–P22 之后用 `sport_invalid` 打开问卷，读取本人提交数 | — （读取 `mySubmission.count`） | 0 | 0 |
+| P24 | 重复运行不重复提交 | 再运行一次脚本 | 15 个已提交过的账号 | 不再提交；其余核对仍一致；答卷总数不变 | 本次提交 0 份，跳过 15 份；其余 57 项全部一致；答卷总数 16 |
+| P25 | 统计与人工计算一致 | 创建者 `hanmeimei` 登录，GET `/api/surveys/{id}/stats` 和答卷列表，与人工计算的期望值逐项比较 | 15 人的答卷 + 问卷中原有的 1 份答卷 | 期望值见下面的明细表 | 43 项全部一致，见下面的明细表 |
 
-### 3. 运行结果（2026-10-21，第一次运行，`--skip-stats`）：72 项全部一致
-
-| 检查部分 | 检查项数 | 期望 | 实际结果 |
-|---|---|---|---|
-| ① 问卷结构 | 14 | 8 道题的题目、5 道选择题的选项文字与预期一致 | 全部一致 |
-| ② 路径（提交前用路径预览接口核对） | 15 | 每人的路径与上表一致 | 全部一致 |
-| ③ 提交与实际保存的题目 | 30 | 15 份均提交成功（201）；每份只保存路径上作答的题，被跳过的题（如第 4、6、7 题）和未填的第 8 题没有保存 | 全部一致 |
-| ④ 不合法答卷（账号 `sport_invalid`） | 13 | 6 份全部被拒绝（422）并给出正确提示；该账号没有任何答卷 | 全部一致 |
-
-④ 的 6 份不合法答卷：
-
-| 输入 | 期望提示 | 结果 |
-|---|---|---|
-| 年龄 31 | 第 1 题：不能大于 30 | 被拒绝，提示一致 |
-| 年龄 13 | 第 1 题：不能小于 14 | 被拒绝，提示一致 |
-| 年龄 18.5 | 第 1 题：必须为整数 | 被拒绝，提示一致 |
-| 第 3 题选 4 项 | 第 3 题：最多选择 3 项（当前选了 4 项） | 被拒绝，提示一致 |
-| 第 7 题选 3 项 | 第 7 题：最多选择 2 项（当前选了 3 项） | 被拒绝，提示一致 |
-| 第 8 题填 2 个字 | 第 8 题：至少 5 个字（当前 2 个） | 被拒绝，提示一致 |
-
-**重复运行**：第二次运行“本次提交 0 份；已提交过而跳过 15 份”，其余 57 项全部一致；这份问卷的答卷总数为 16（原有 1 份 + 15 份），没有重复提交。
-
-### 4. 统计核对（2026-10-21 11:22，开发者输入创建者密码运行）：100 项全部一致
-
-命令：`python -m scripts.sport_survey_e2e --report docs/sport_survey_e2e_result.md`。完整结果表见 [docs/sport_survey_e2e_result.md](sport_survey_e2e_result.md)：**共 100 项（问卷结构 14、路径 15、保存的题目 15、不合法答卷 13、统计 43），一致 100 项，不一致 0 项**。这是第二次以后的运行，15 个账号均已提交过，只做核对、没有重复提交。
+### 3. 统计核对明细（P25）
 
 期望值 = **人工计算的 15 人部分**（写死在脚本中）+ 问卷中原有的 1 份其他答卷（运行时从答卷列表读取）。
 
@@ -318,53 +319,69 @@ python -m scripts.sport_survey_e2e --skip-stats       # 不核对统计
 
 ## 五、界面测试（`tests/ui/`）
 
-用 Node.js 通过 Chrome 调试协议驱动无界面 Chrome，在真实页面中操作，检查页面内容与数据库结果，并检查整个过程中页面没有 JS 异常、没有出现文字 “null”。每一步的记录见 `docs/images/tests/steps-*.txt`。
+用 Node.js 通过 Chrome 调试协议驱动无界面 Chrome，在真实页面中操作，检查页面内容与数据库结果，并检查整个过程中页面没有 JS 异常、没有出现文字 “null”。每一步的运行记录见 `docs/images/tests/steps-*.txt`（每步断言通过后打印一行 ✓）。
 
-### K1. 编辑页（7 步，全部通过）
+“实际结果”是测试脚本断言检查到的页面内容或接口返回值。**手机尺寸**（390×800）一步只加载页面并截图，没有对布局做自动断言，显示是否正常以截图为准。
 
-| 步骤 | 期望 | 截图 |
-|---|---|---|
-| 打开编辑页 | 显示 3 道题，作答说明由校验规则自动生成（如“多选，至少选 1 项，最多选 2 项”） | ![](images/tests/edit-01-overview.png) |
-| 给第 1 题添加跳转规则 | 运算符、选项、目标均为下拉框；目标只列出后面的题和“结束问卷”；保存后数据库中的规则正确 | ![](images/tests/edit-02-jump-rule.png) |
-| 多选题“至少选 5 项”（只有 3 个选项） | 错误列在表单上方，对应输入框标红 | ![](images/tests/edit-03-validation-error.png) |
-| 调整顺序使规则变成往前跳 | 被拒绝，错误标在对应题目上 | ![](images/tests/edit-04-reorder-rejected.png) |
-| 添加文本题、发布、手机尺寸 | 发布后题目只读、提交策略和匿名锁定；手机尺寸正常 | — |
+### K1. 编辑页（8 步，全部通过）
+
+准备数据：账号 `ui_editor` 通过接口创建“水果偏好调查”，3 道题：单选“你喜欢吃水果吗？”（喜欢/不喜欢）；多选“你喜欢哪些水果？”（苹果/香蕉/榴莲，1–2 项）；数字“你每周吃几次水果？”（0–50 整数）。
+
+| 步骤 | 测试步骤 | 输入 | 期望输出 | 实际结果 | 截图 |
+|---|---|---|---|---|---|
+| 1 | 打开编辑页 | 上述 3 道题 | 显示 3 道题，作答说明由校验规则自动生成 | 显示 3 道题，作答说明依次为“单选”“多选，至少选 1 项，最多选 2 项”“请输入 0–50 之间的整数” | ![](images/tests/edit-01-overview.png) |
+| 2 | 第 1 题点“编辑”→“＋ 添加跳转规则”，查看 3 个下拉框 | — | 运算符、选项、目标均为下拉框；目标只列出后面的题和“结束问卷” | 运算符为 [选择了, 选择了其中之一]；选项为 [喜欢, 不喜欢]；目标为 [第 2 题：你喜欢哪些水果？, 第 3 题：你每周吃几次水果？, 结束问卷] | ![](images/tests/edit-02-jump-rule.png) |
+| 3 | 设置规则并保存，通过接口读取问卷 | 选项“不喜欢”，目标“第 3 题” | 保存后数据库中的规则正确 | 编辑器关闭；第 1 题 `logic` 为 `{rules: [{when: {op: "eq", value: <不喜欢的 id>}, goto: <第 3 题 id>}], defaultNext: null}` | — |
+| 4 | 编辑第 2 题，最少选择数填 5，保存 | `5`（只有 3 个选项） | 错误列在表单上方，对应输入框标红 | 错误列表中有“第 2 题：最少选择数（5）不能大于选项数（3）”；标红的输入框只有 `validation.minSelect` | ![](images/tests/edit-03-validation-error.png) |
+| 5 | 第 3 题点两次“上移” | — | 第二次使规则变成往前跳，被拒绝，错误标在对应题目上 | 第一次上移成功；第二次显示错误，题目上的错误文字为“第 2 题第 1 条规则：只能跳转到后面的题目或 END（目标是第 1 题）” | ![](images/tests/edit-04-reorder-rejected.png) |
+| 6 | 点“＋ 文本填空”，填标题，点“添加” | 标题“其他建议” | 添加成功 | 编辑器关闭，列表中有 4 道题 | — |
+| 7 | 通过接口发布后重新打开编辑页 | — | 题目只读，提交策略和匿名设置锁定 | 发布返回 200；页面上没有题目操作按钮，“添加题目”栏隐藏，提交策略输入框为禁用（匿名设置的锁定只在截图中可见，没有单独断言） | — |
+| 8 | 窗口改为 390×800 后打开编辑页 | — | 手机尺寸显示正常 | 页面加载完成并截图（无布局断言） | — |
 
 ### K2. 填写页（15 步，全部通过）
 
-| 步骤 | 期望 | 截图 |
-|---|---|---|
-| 未登录打开问卷链接 | 跳到登录页并提示；登录后自动回到原问卷 | ![](images/tests/fill-01-login-redirect.png) |
-| 选“不喜欢” | 单选立即计算，跳到第 5 题；第 2~4 题不显示，题号保持原编号 | ![](images/tests/fill-02-jump-to-q5.png) |
-| 改回“喜欢”、多选选了榴莲 | 第 5 题收起、第 2 题出现；多选停顿后进入第 3 题 | — |
-| 第 3 题只填“好吃” | 错误显示在题目下方，题目边框变红 | ![](images/tests/fill-03-error.png) |
-| 第 4 题填 0 | 结束问卷，第 5 题不显示，出现“提交”，进度 100% | ![](images/tests/fill-04-end-submit.png) |
-| 改成 7、跳过第 5 题；取消再选回榴莲 | 第 5 题出现、可“跳过此题”；第 3 题收起后恢复原内容 | — |
-| 先发出的预览请求故意延迟 1.2 秒返回 | 页面只采用最后一次请求的结果 | — |
-| 提交 | 感谢页；数据库只保存路径上作答的题；匿名问卷答卷列表不含填写人 | ![](images/tests/fill-05-thanks.png) |
-| 再次打开（latest） | 预填上次答案并直接展开到上次答过的位置 | ![](images/tests/fill-06-latest-prefill.png) |
-| 问卷关闭后打开 | 只显示“问卷已关闭”提示，不显示题目 | ![](images/tests/fill-07-closed.png) |
-| 创建者预览草稿、手机尺寸 | 可以预览跳转，提交按钮禁用；手机尺寸正常 | — |
+准备数据：创建者 `ui_owner` 通过接口搭建水果问卷（`latest` 策略、匿名）；填写者 `ui_filler` / `uitest123`。
+
+| 步骤 | 测试步骤 | 输入 | 期望输出 | 实际结果 | 截图 |
+|---|---|---|---|---|---|
+| 1 | 未登录打开 `/survey/<shortCode>`，在登录页登录 | `ui_filler` / `uitest123` | 跳到登录页并提示；登录后自动回到原问卷 | 地址变为 `/login?next=%2Fsurvey%2F<shortCode>`，页面提示“登录后将自动打开你要填写的问卷”；登录后地址为 `/survey/<shortCode>` | ![](images/tests/fill-01-login-redirect.png) |
+| 2 | 查看初始状态 | — | 只显示第 1 题，显示匿名提示，进度 0% | 只显示第 1 题；进度条宽度 0%；提示中有“本问卷为匿名问卷，创建者看不到你的身份” | — |
+| 3 | 第 1 题点“不喜欢” | 不喜欢 | 立即计算，跳到第 5 题；第 2~4 题不显示，题号保持原编号 | 显示的题号为 [1, 5]；第 5 题显示“跳过此题” | ![](images/tests/fill-02-jump-to-q5.png) |
+| 4 | 第 1 题改点“喜欢” | 喜欢 | 第 5 题收起、第 2 题出现 | 显示的题号为 [1, 2] | — |
+| 5 | 第 2 题依次点“苹果”“榴莲” | 苹果、榴莲 | 多选停顿后才计算，进入第 3 题 | 点完立即检查仍为 [1, 2]；停顿后为 [1, 2, 3] | — |
+| 6 | 第 3 题输入后离开 | “好吃” | 错误显示在题目下方，题目边框变红 | 第 3 题带错误样式，错误文字为“至少 5 个字（当前 2 个）” | ![](images/tests/fill-03-error.png) |
+| 7 | 第 3 题改正；第 4 题填 0 | “闻着臭吃着香”；0 | 结束问卷，第 5 题不显示，出现“提交”，进度 100% | 改正后错误样式消失、第 4 题出现；填 0 后显示 [1, 2, 3, 4]，提交栏出现，进度条 100% | ![](images/tests/fill-04-end-submit.png) |
+| 8 | 第 4 题改成 7；点第 5 题“跳过此题” | 7 | 第 5 题出现、可跳过，跳过后出现“提交” | 显示 [1, 2, 3, 4, 5]，提交栏隐藏；跳过后提交栏出现 | — |
+| 9 | 第 2 题取消“榴莲”，再选回 | 榴莲 | 第 3 题收起后恢复原内容 | 取消后显示 [1, 2, 4, 5]；选回后显示 [1, 2, 3, 4, 5]，第 3 题内容仍为“闻着臭吃着香” | — |
+| 10 | 让下一次预览请求延迟 1.2 秒；第 1 题快速点“不喜欢”再点“喜欢”，等 1.8 秒 | 第一次请求延迟 1.2 秒，第二次立即返回 | 页面只采用最后一次请求的结果 | 仍显示 [1, 2, 3, 4, 5]（较晚返回的“不喜欢”结果没有覆盖） | — |
+| 11 | 点“提交”；创建者通过接口读取答卷列表 | — | 感谢页；只保存路径上作答的题；匿名问卷答卷列表不含填写人 | 页面显示“感谢填写！”；答卷列表 `total` 为 1，保存的题目为第 1–4 题（第 5 题跳过未答）；答卷中没有 `username` | ![](images/tests/fill-05-thanks.png) |
+| 12 | 再次打开问卷链接 | — | latest 策略预填上次答案，并直接展开到上次答过的位置 | 显示 [1, 2, 3, 4, 5]，第 5 题显示“跳过此题”，提交栏隐藏；第 3 题为“闻着臭吃着香”，第 4 题为“7”；提示以“已为你填入上次提交的答案”开头 | ![](images/tests/fill-06-latest-prefill.png) |
+| 13 | 创建者通过接口关闭问卷后打开链接 | — | 只显示“问卷已关闭”提示，不显示题目 | 提示中有“问卷已关闭，不再接受填写”；题目数为 0 | ![](images/tests/fill-07-closed.png) |
+| 14 | 创建者登录，打开自己的水果问卷草稿；选“不喜欢”，跳过第 5 题 | 不喜欢 | 可以预览跳转，提交按钮禁用 | 提示中有“预览模式：问卷尚未发布，不能提交”；显示 [1, 5]；走到结尾后提交按钮为禁用 | — |
+| 15 | 窗口改为 390×800，打开草稿，选“喜欢” | 喜欢 | 手机尺寸显示正常 | 显示 [1, 2]，截图（无布局断言） | — |
 
 ### K3. 统计页（7 步，全部通过）
 
-固定数据：4 人按不同路径填写，其中 1 人又提交 22 次，共 26 份答卷（all 策略）。
+准备数据（`all` 策略，实名）：u_zhang：喜欢 → [苹果, 榴莲] → “闻着臭吃着香” → 7 → “多吃水果”；u_li：喜欢 → [苹果, 香蕉] → 3；u_wang：不喜欢 → “不爱吃”，之后又提交 22 次（不喜欢 → “意见1”~“意见22”）；u_zhao：喜欢 → [香蕉] → 0。共 26 份答卷、4 位填写人。
 
-| 步骤 | 期望 | 截图 |
-|---|---|---|
-| 打开统计页 | 答卷数 26、填写人数 4；“喜欢 3 人（11.5%）、不喜欢 23 人（88.5%）”；同题各选项底槽等宽；平均值 3.33；实名显示用户名 | ![](images/tests/stats-01-overview.png) |
-| 第 5 题加载更多 | 先显示 20 条，加载后 24 条 | — |
-| 答卷列表 | 从新到旧，选项显示为文字，加载更多后 26 份 | ![](images/tests/stats-02-responses.png) |
-| 匿名问卷 | 统计和答卷列表中都不出现填写人 | ![](images/tests/stats-03-anonymous.png) |
+| 步骤 | 测试步骤 | 输入 | 期望输出 | 实际结果 | 截图 |
+|---|---|---|---|---|---|
+| 1 | 创建者 `ui_stats_owner` 打开统计页 | 上述 26 份答卷 | 答卷数 26、填写人数 4 和统计口径 | 顶部为“26 答卷数”“4 填写人数”；口径以“统计口径：全部答卷（含同一人的多次提交）”开头 | — |
+| 2 | 查看第 1、2 题的柱状条 | — | 显示人数（次数）和百分比，没人选的显示 0；同题各选项底槽等宽 | 第 1 题“3 人（11.5%）”“23 人（88.5%）”，说明为“单选题 · 答卷数 26 · 作答人数 4”，第一根柱宽 11.5%；第 2 题“2 次（66.7%）”“2 次（66.7%）”“0 次（0%）”“1 次（33.3%）”，4 个底槽宽度相同 | — |
+| 3 | 查看第 3、4 题 | — | 平均值 3.33 和全部填写内容；实名问卷显示填写人用户名 | 第 4 题平均值“3.33”，内容为 [0, 3, 7]；第 3 题填写人为 [u_zhang] | ![](images/tests/stats-01-overview.png) |
+| 4 | 第 5 题点“加载更多” | — | 先显示 20 条，加载后 24 条 | 先 20 条，按钮文字为“加载更多（已显示 20 / 24）”；点击后 24 条，按钮隐藏 | — |
+| 5 | 切到“答卷列表”，点“加载更多” | — | 从新到旧，选项显示为文字，加载更多后 26 份 | 先 20 份，摘要以“共 26 份答卷”开头，最后一份中没有 `o_` 开头的选项 id；加载后 26 份，最早的一份含“第 1 份”“u_zhang”“苹果、榴莲”“闻着臭吃着香” | ![](images/tests/stats-02-responses.png) |
+| 6 | 新建匿名水果问卷，u_zhang 提交后打开统计页和答卷列表 | 不喜欢 → “匿名的意见” | 统计和答卷列表中都不出现填写人 | 页面文字中没有“u_zhang”；填写人元素 0 个；页面中有“匿名的意见” | ![](images/tests/stats-03-anonymous.png) |
+| 7 | 窗口改为 390×800 后打开统计页 | — | 手机尺寸显示正常 | 5 道题的统计都已显示，截图（无布局断言） | — |
 
 ## 六、手工测试
 
-开发者在每个前端小步完成后，按检查清单在浏览器中操作（Windows 11，Chrome），结果如下。
+开发者在每个前端小步完成后，按 AI 给出的检查清单在浏览器中操作（Windows 11，Chrome）。下表的“测试步骤”和“输入”来自当时的检查清单。**开发者对每一轮给出的是整体结论（如“9b 检查通过”），没有逐项记录看到的内容**，所以“实际结果”只写开发者的结论和发现的问题，不补写未记录的细节。
 
-| 编号 | 内容 | 检查清单要点 | 结果 |
-|---|---|---|---|
-| M1 | 9a 登录、我的问卷 | 注册登录、字段错误、新建问卷、链接复制、退出、未登录访问链接后回到问卷、`next` 指向外部网站时不跳转、手机视图 | 功能通过；开发者对第一版样式不满意，提出 10 条修改要求后重做，确认满意（AI_LOG 第 22、23 条） |
-| M2 | 9b 编辑页 | 四种题型、选项与校验、跳转规则、错误提示、往前跳被拒、重叠警告、发布后只读、两个标签页编辑冲突、手机视图 | 开发者确认“9b 检查通过” |
-| M3 | 9c 填写页 | 逐题展开、修改后收起与恢复、错误提示、感谢页、latest 修改答案、未登录跳转、手机视图 | 开发者确认“9c 检查通过” |
-| M4 | 9d 统计页 | 柱状条、百分比、平均值、答卷列表选项显示为文字、匿名问卷不显示用户名、手机视图 | 开发者确认“9d 检查通过” |
-| M5 | 接口文档页 `/docs` | 注册、登录、Authorize、`/me`、创建问卷、无题目发布、JSON 格式错误提示 | 开发者手动测试通过；发现 JSON 格式错误时 `field` 显示为字符位置的问题，已修正（AI_LOG 第 15 条） |
+| 编号 | 测试点 | 测试步骤 | 输入 | 期望输出 | 实际结果 |
+|---|---|---|---|---|---|
+| M1 | 9a 登录、我的问卷 | ① 打开首页；② 用不合法的用户名和密码注册；③ 正常注册；④ 新建问卷时标题留空；⑤ 填写设置并创建；⑥ 回到列表；⑦ 用 `/docs` 加一道题并发布后刷新列表、点“复制”；⑧ 退出；⑨ 未登录打开问卷链接后登录；⑩ 打开带外部 `next` 的登录地址并登录；⑪ 手机视图 | ② 用户名 `a b`、密码 `123`；③ 开发者自选的正常用户名和 8 位以上密码；⑤ 标题、提交策略、匿名、截止时间（开发者自选）；⑦ `{"type": "text", "title": "测试题"}`；⑩ `/login?next=https://www.baidu.com` | ① 自动跳到登录页；② 两个输入框下方出现红字、边框变红；③ 自动登录进入“我的问卷”；④ 提示“标题不能为空”；⑤ 跳到编辑页；⑥ 显示“草稿”，截止时间为本地时间；⑦ 变为“收集中”，出现链接，复制后提示“链接已复制”；⑧ 回到登录页；⑨ 跳到登录页并提示，登录后回到问卷；⑩ 进入“我的问卷”，**不跳到外部网站**；⑪ 卡片铺满宽度，可正常操作 | 功能通过；开发者对第一版样式不满意，提出 10 条修改要求后重做，确认满意（AI_LOG 第 22、23 条） |
+| M2 | 9b 编辑页 | ① 新建问卷进入编辑页；② 添加四种题型各一道，增删选项、设置校验；③ 给单选题加跳转规则（含“结束问卷”）；④ 故意填错校验设置并保存；⑤ 把被规则指向的题往前移、删除被指向的题；⑥ 加两条重叠的数字规则；⑦ 发布后修改截止时间；⑧ 两个标签页编辑同一份问卷；⑨ 手机视图 | ④ 多选“至少选”大于选项数；⑥ “大于 10”和“大于 20”；其余为开发者自选的题目和设置 | ② 下方预览同步变化；③ “跳到”下拉框只有后面的题；④ 错误提示和红框；⑤ 被拒绝并标出错误位置；⑥ 黄色重叠提醒；⑦ 题目只读，提交策略和匿名变灰，截止时间可保存；⑧ 第二个标签页保存时提示“问卷已被修改，请刷新后重试”；⑨ 正常显示 | 开发者确认“9b 检查通过” |
+| M3 | 9c 填写页 | ① 发布问卷并打开链接；② 按规则答题，再修改前面的答案、改回来；③ 文本题少填几个字后离开输入框；④ 提交；latest 问卷点“修改答案”；⑤ 退出后直接打开问卷链接；⑥ 手机视图答一遍 | 开发者自建的问卷和自选答案 | ② 下一题平滑出现，不需要的题收起、改回时内容还在；③ 显示错误提示；④ 显示感谢页，latest 预填并展开到上次位置；⑤ 先跳到登录页，登录后回到问卷；⑥ 正常显示 | 开发者确认“9c 检查通过” |
+| M4 | 9d 统计页 | 用已有人填写的问卷打开“统计结果”：① 看柱状条、百分比、平均值；② 切到“答卷列表”；③ 打开匿名问卷的统计；④ 手机视图 | 9c 测试时填写的问卷 | ① 与填写内容一致；② 选项显示为文字；③ 页面上没有任何用户名；④ 正常显示 | 开发者确认“9d 检查通过” |
+| M5 | 接口文档页 `/docs` | 在 `/docs` 中依次操作：注册、登录、Authorize、`/me`、创建问卷、无题目时发布、发送格式错误的 JSON | 开发者自选的用户名、密码和问卷内容；一段格式错误的 JSON | 各接口返回正确结果；无题目发布被拒；JSON 格式错误时给出统一格式的中文提示 | 开发者手动测试通过；发现 JSON 格式错误时 `field` 显示为字符位置（如 `"102"`）的问题，已修正为 `field: "body"`、位置写在 message 中（AI_LOG 第 15 条） |

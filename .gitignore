@@ -19,6 +19,11 @@ Thumbs.db
 # 界面测试截图（每次运行重新生成；整理文档时挑选复制到 docs/）
 tests/ui/screenshots/
 
+# 只保存在本地、不上传的个人文档（完成清单、报告素材、老师要求原文）
+docs/CHECKLIST.md
+docs/REPORT_MATERIALS.md
+docs/REQUIREMENTS.md
+
 # 覆盖率数据（pytest --cov 运行时生成）
 .coverage
 .coverage.*

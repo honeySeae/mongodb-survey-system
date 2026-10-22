@@ -3,6 +3,7 @@
 本文件供 Claude Code 每次会话自动读取。所有工作必须遵守以下要求。
 
 > **需求以 `docs/REQUIREMENTS.md`（老师的项目要求原文 + 课上补充）为准**；本文件与其不一致时，以原文为准，并告知开发者。第一阶段进度见 `docs/CHECKLIST.md`，每完成一步更新打勾。
+> （这两个文件以及 `docs/REPORT_MATERIALS.md` 只保存在开发者本地，不上传到仓库，已加入 `.gitignore`。）
 
 ## 1. 项目背景
 
