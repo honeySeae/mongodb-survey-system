@@ -53,7 +53,7 @@
 ### 2. 安装依赖
 
 ```bash
-git clone <仓库地址> && cd <项目目录>
+git clone https://github.com/honeySeae/mongodb-survey-system.git && cd mongodb-survey-system
 python -m venv .venv
 .venv\Scripts\activate            # Windows（PowerShell / cmd）
 # source .venv/bin/activate       # Mac / Linux
@@ -204,7 +204,7 @@ grep -A2 "^net:" /etc/mongod.conf      # 应为 bindIp: 127.0.0.1（默认值，
 
 ```bash
 sudo apt-get install -y python3-venv git
-git clone <仓库地址> /opt/survey && cd /opt/survey
+git clone https://github.com/honeySeae/mongodb-survey-system.git /opt/survey && cd /opt/survey
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 ```
 
