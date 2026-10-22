@@ -178,7 +178,7 @@ pytest -m "not ui"                                          # 只跑后端测试
 pytest --cov=app --cov=scripts --cov-report=term-missing    # 代码覆盖率
 ```
 
-测试使用独立数据库（`survey_test`、`survey_ui_test`），不会影响开发数据；运行前需先启动 MongoDB。详见[九、测试](#九测试)。
+在项目根目录、激活虚拟环境后运行；`pytest` 与 `python -m pytest` 两种写法都可以（`pytest.ini` 中设置了 `pythonpath = .`）。测试使用独立数据库（`survey_test`、`survey_ui_test`），不会影响开发数据；运行前需先启动 MongoDB。详见[九、测试](#九测试)。
 
 ---
 

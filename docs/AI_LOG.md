@@ -435,3 +435,12 @@
   - 提交时用了 `git add -A`，把开发者本地的空文件 `111`（0 字节，非 AI 创建）一并提交（`bb10cac`）；随后新提交从仓库中移除（`bddf38e`），文件保留在开发者磁盘上。之后提交只添加明确的文件。
 - 是否修改：
 - 修改内容：
+
+### 33. 提交前修复：直接运行 pytest 报错 No module named 'app'（2026-10-22）
+- 工具：Claude Code
+- 提示词：开发者准备提交第一阶段，要求按顺序做 4 件事，第 1~3 步做完先汇报、确认后再推送。第 1 步：“直接运行 pytest 会报错 No module named ‘app’，python -m pytest 可以运行。请在 pytest 配置中设置 pythonpath，让两种命令都能运行，并核对 README 中的测试命令。改完后运行全部测试。”
+- **问题由开发者发现**：README 中的测试命令是 `pytest`，但直接运行时 `tests/conftest.py` 无法导入 `app`（`python -m pytest` 会把当前目录加入模块搜索路径，`pytest` 不会）。
+- **AI 的疏漏**：第 28 条的“干净环境验证”中，AI 运行测试用的是 `.venv/Scripts/python -m pytest`，并没有严格使用 README 中写的 `pytest` 命令，因此没有发现这个问题；AI 一直使用 `python -m pytest`，也没有在开发中暴露。
+- AI 产出：`pytest.ini` 增加 `pythonpath = .`；README 补充“在项目根目录、激活虚拟环境后运行，两种写法都可以”。核对 README 中的全部测试命令并在激活虚拟环境后按原样运行：`pytest` 660 个通过；`pytest -m "not ui"` 657 个通过、3 个界面测试按标记排除；`pytest --cov=app --cov=scripts --cov-report=term-missing` 660 个通过（覆盖率合计 88%，`app/` 99%，原因见第 32 条）；`python -m pytest` 660 个通过。
+- 是否修改：
+- 修改内容 / 本人决定：本人发现问题并指定修复方式（在 pytest 配置中设置 pythonpath）。
