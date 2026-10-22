@@ -466,3 +466,29 @@ def test_extend_expired_survey_resumes(client, alice, db, new_deadline):
     assert resp.status_code == 200
     assert resp.json()["isExpired"] is False
     assert resp.json()["status"] == "published"
+
+
+# ---------- 脚本指定固定链接代码（示例数据用；接口不接受） ----------
+def test_create_with_fixed_short_code(db):
+    owner = ObjectId()
+    s = survey_service.create_survey(db, owner, title="示例", description=None, allow_anonymous=False,
+                                     submission_policy="once", deadline=None, short_code="Food26")
+    assert s["shortCode"] == "Food26"
+    with pytest.raises(AppError) as exc:
+        survey_service.create_survey(db, owner, title="另一份", description=None, allow_anonymous=False,
+                                     submission_policy="once", deadline=None, short_code="Food26")
+    assert exc.value.code == "SHORT_CODE_TAKEN"
+
+
+@pytest.mark.parametrize("code", ["Food2", "Food267", "Food_6", "食物问卷01"])
+def test_create_with_invalid_fixed_short_code(db, code):
+    with pytest.raises(AppError) as exc:
+        survey_service.create_survey(db, ObjectId(), title="示例", description=None, allow_anonymous=False,
+                                     submission_policy="once", deadline=None, short_code=code)
+    assert exc.value.code == "VALIDATION_ERROR"
+
+
+def test_api_ignores_short_code_field(client, alice):
+    """接口不接受指定链接代码：请求中的 shortCode 被忽略，仍随机生成。"""
+    s = create_ok(client, alice, shortCode="Food26")
+    assert s["shortCode"] != "Food26"

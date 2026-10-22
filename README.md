@@ -4,7 +4,7 @@
 
 > 课程项目第一阶段。
 > - GitHub 仓库：`（推送后填写）`
-> - 线上示例问卷：`（部署后填写，见“十、示例问卷”）`
+> - 示例问卷：本地 **http://127.0.0.1:8000/survey/Food26**（先运行 `python -m scripts.seed_demo`）；部署后为 `<服务器地址>/survey/Food26`，见“十、示例问卷”
 
 ## 目录
 
@@ -168,7 +168,7 @@ uvicorn app.main:app --reload
 python -m scripts.seed_demo
 ```
 
-输出问卷链接和账号，详见[十、示例问卷](#十示例问卷)。
+示例问卷的链接固定为 **http://127.0.0.1:8000/survey/Food26**，填写人账号 `demo_s01`~`demo_s12`，密码 `demo123456`，详见[十、示例问卷](#十示例问卷)。
 
 ### 8. 运行测试
 
@@ -882,11 +882,11 @@ pytest --cov=app --cov=scripts --cov-report=term-missing    # 覆盖率
 | 接口测试 | 每个接口的正常与异常、权限、三种提交策略、并发 | pytest + FastAPI TestClient |
 | 界面测试 | 编辑页、填写页、统计页（29 个步骤，含截图） | Node.js 驱动无界面 Chrome（`tests/ui/`） |
 
-**运行结果**（2026-10-20）：**649 个测试全部通过，代码覆盖率 99%**。测试使用独立数据库，不影响开发数据。
+**运行结果**（2026-10-22）：**660 个测试全部通过**。代码覆盖率：`app/` 99%；`app/` 与 `scripts/` 合计 88%——其中 `scripts/sport_survey_e2e.py` 是对着运行中的服务手动执行的端到端测试脚本，不在 pytest 中运行（覆盖率 0%），不计它时为 99%。测试使用独立数据库，不影响开发数据。
 
 **基于本人手工创建的问卷的端到端测试**：开发者在网页上手工创建了“大学生运动习惯调查”，[`scripts/sport_survey_e2e.py`](scripts/sport_survey_e2e.py) 通过 HTTP 接口模拟 15 位填写人（覆盖各条跳转路径与边界）和 6 份不合法答卷，逐项核对路径、实际保存的题目、拒绝提示和统计结果，详见 TEST_CASES 第四节。
 
-**代表性用例**（完整的 98 条用例见 **[docs/TEST_CASES.md](docs/TEST_CASES.md)**）
+**代表性用例**（完整的 99 条用例见 **[docs/TEST_CASES.md](docs/TEST_CASES.md)**）
 
 | 测试点 | 输入 | 期望输出 | 结果 |
 |---|---|---|---|
@@ -903,20 +903,27 @@ pytest --cov=app --cov=scripts --cov-report=term-missing    # 覆盖率
 
 ## 十、示例问卷
 
-`scripts/seed_demo.py` 生成一份已发布的示例问卷 **“大学生饮食习惯调查”**（12 道题，覆盖四种题型、单选/多选/数字三类跳转和各种校验）和 12 位填写人的 13 份答卷：
-
-```bash
-python -m scripts.seed_demo                        # 已存在时不重复生成，直接输出链接
-python -m scripts.seed_demo --reset                # 删除示例问卷及其答卷后重新生成（不影响其他数据）
-python -m scripts.seed_demo --owner-password XXX   # 指定创建者密码（部署到服务器时请使用）
-```
+`scripts/seed_demo.py` 生成一份已发布的示例问卷 **“大学生饮食习惯调查”**（12 道题，覆盖四种题型、单选/多选/数字三类跳转和各种校验）和 12 位填写人的 13 份答卷。
 
 | 项目 | 内容 |
 |---|---|
-| 链接 | 运行脚本后输出，格式为 `<PUBLIC_BASE_URL>/survey/<shortCode>`；线上地址见本文开头 |
-| 设置 | 实名、可以重填（以最后一次为准）、不限截止时间 |
-| 填写人账号 | `demo_s01` ~ `demo_s12`，密码 `demo123456`；也可以自己注册新账号填写 |
-| 创建者账号 | `demo_owner`（本地密码 `demo123456`；线上密码不公开），登录后在“我的问卷”中点“统计结果” |
+| **访问链接** | **本地：http://127.0.0.1:8000/survey/Food26**；部署后：`<PUBLIC_BASE_URL>/survey/Food26`（如 `http://<服务器 IP>:8000/survey/Food26`） |
+| 链接代码 | 固定为 `Food26`，重新生成（`--reset`）或换一台机器生成都不变 |
+| 填写人账号 | `demo_s01` ~ `demo_s12`，密码均为 `demo123456`（已提交过，再次打开会预填上次答案）；**也可以自己注册新账号填写** |
+| 创建者账号 | `demo_owner`，本地密码 `demo123456`（线上用 `--owner-password` 另设，不公开）；登录后在“我的问卷”中点“统计结果” |
+| 设置 | 已发布、实名、可以重填（以最后一次为准）、不限截止时间 |
+
+**生成方法**（先启动 MongoDB；不需要先启动服务）：
+
+```bash
+python -m scripts.seed_demo                        # 已存在时不重复生成，直接输出链接和账号
+python -m scripts.seed_demo --reset                # 删除示例问卷及其答卷后重新生成（链接仍为 Food26，不影响其他数据）
+python -m scripts.seed_demo --owner-password XXX   # 指定创建者密码（部署到服务器时请使用）
+```
+
+- 用旧版本脚本生成过示例问卷（随机链接）的数据库，再运行一次脚本会把链接改为 `Food26`，答卷保留。
+- 若 `Food26` 已被另一份问卷占用，脚本报错停止，不会覆盖那份问卷。
+- 打开链接需要先登录；未登录时会先跳到登录页，登录后自动回到问卷。
 
 **建议试的路径**：
 

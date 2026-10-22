@@ -32,6 +32,10 @@ def generate_short_code() -> str:
     return "".join(secrets.choice(SHORT_CODE_ALPHABET) for _ in range(SHORT_CODE_LENGTH))
 
 
+def is_valid_short_code(code: str) -> bool:
+    return len(code) == SHORT_CODE_LENGTH and all(c in SHORT_CODE_ALPHABET for c in code)
+
+
 # ---------- 字段检查 ----------
 def _check_title(title: str) -> list[dict]:
     t = title.strip()
@@ -82,7 +86,12 @@ def list_surveys(db: Database, owner_id: ObjectId) -> list[dict]:
 # ---------- 创建 ----------
 def create_survey(db: Database, owner_id: ObjectId, *, title: str, description: str | None,
                   allow_anonymous: bool, submission_policy: str,
-                  deadline: datetime | None) -> dict:
+                  deadline: datetime | None, short_code: str | None = None) -> dict:
+    """创建问卷（草稿）。
+
+    short_code 通常不传，由系统随机生成；只有脚本（如示例数据 scripts/seed_demo.py）会指定固定值，
+    网页和接口不接受这个参数。指定的值已被其他问卷使用时返回 409，不会覆盖。
+    """
     now = now_utc()
     description = description or ""
     errors = _check_title(title) + _check_description(description) + _check_deadline(deadline, now)
@@ -106,6 +115,15 @@ def create_survey(db: Database, owner_id: ObjectId, *, title: str, description: 
         "publishedAt": None,
         "closedAt": None,
     }
+    if short_code is not None:
+        if not is_valid_short_code(short_code):
+            raise ValidationFailed([{"field": "shortCode",
+                                     "message": f"链接代码应为 {SHORT_CODE_LENGTH} 位字母或数字"}])
+        try:
+            return surveys_repo.insert(db, {**doc_base, "shortCode": short_code})
+        except DuplicateKeyError:
+            raise Conflict("SHORT_CODE_TAKEN", f"链接代码 {short_code} 已被其他问卷使用")
+
     # shortCode 随机生成，极少数情况下与已有的重复，由唯一索引发现后重试
     for _ in range(SHORT_CODE_RETRIES):
         try:

@@ -38,18 +38,18 @@ pytest --cov=app --cov=scripts --cov-report=term-missing   # 代码覆盖率
 
 ## 二、运行记录
 
-**2026-10-20 16:23**，命令 `pytest --cov=app --cov=scripts`：
+**2026-10-22 21:14**，命令 `pytest --cov=app --cov=scripts`：
 
-- **649 个测试全部通过**，0 失败，0 跳过，用时 37.0 秒。
-- **代码覆盖率 99%**（`app/` 与 `scripts/` 共 1633 行，未覆盖 8 行，均为防御性分支和脚本入口行）。
-- 此前 16:03 的运行为 645 个全部通过；之后新增 4 个配置测试（拒绝示例密钥，见 A9）。
+- **660 个测试全部通过**，0 失败，0 跳过，用时 46.1 秒。
+- **代码覆盖率**：`app/` **99%**（1532 行，未覆盖 4 行）；`app/` 与 `scripts/` 合计 **88%**（1877 行，未覆盖 228 行），其中 217 行来自 `scripts/sport_survey_e2e.py`——它是对着运行中的服务手动执行的端到端测试脚本（见第四节），不在 pytest 中运行，覆盖率为 0%；不计它时为 **99%**（1660 行，未覆盖 11 行）。
+- 历次运行：10-20 16:03 为 645 个全部通过（覆盖率 99%，当时还没有端到端脚本）；16:23 新增 4 个配置测试（A9）后 649 个全部通过；10-22 新增 11 个示例问卷固定链接相关测试（J4）后 660 个全部通过。
 - 第 11 步在干净环境中（从仓库克隆、新建虚拟环境、完全按 README 操作）运行，同样全部通过。
 
 | 测试文件 | 用例数 | 内容 |
 |---|---|---|
 | `test_auth.py` | 52 | 注册、登录、令牌、统一错误格式 |
 | `test_db.py` | 29 | 集合校验规则、索引、部分唯一索引、64 位整数存储 |
-| `test_surveys.py` | 68 | 问卷创建、列表、修改、删除、发布、关闭、过期 |
+| `test_surveys.py` | 74 | 问卷创建、列表、修改、删除、发布、关闭、过期；脚本指定固定链接代码 |
 | `test_survey_state.py` | 27 | 问卷状态规则表（纯函数） |
 | `test_question_rules.py` | 56 | 单题设置检查（纯函数） |
 | `test_survey_check.py` | 93 | 跳转规则合法性检查与警告（纯函数） |
@@ -58,13 +58,13 @@ pytest --cov=app --cov=scripts --cov-report=term-missing   # 代码覆盖率
 | `test_jump.py` | 74 | 答题路径计算（纯函数） |
 | `test_fill.py` | 46 | 填写与提交、提交策略、并发 |
 | `test_stats.py` | 28 | 统计与答卷列表 |
-| `test_seed_demo.py` | 6 | 示例数据脚本 |
+| `test_seed_demo.py` | 11 | 示例数据脚本（含固定链接 Food26） |
 | `test_edge_cases.py` | 13 | 覆盖率检查后补充的边界情况 |
 | `test_pages.py` | 18 | 页面路由、静态资源、`/api/meta` |
 | `test_health.py` | 8 | 健康检查、配置（含拒绝示例密钥） |
 | `test_frontend_js.py` | 1 | 前端纯函数（Node.js） |
 | `test_ui.py` | 3 | 界面测试：编辑页、填写页、统计页（共 29 个步骤） |
-| **合计** | **649** | |
+| **合计** | **660** | |
 
 ## 三、测试用例
 
@@ -219,6 +219,7 @@ pytest --cov=app --cov=scripts --cov-report=term-missing   # 代码覆盖率
 | J1 | 生成示例问卷 | `python -m scripts.seed_demo` | — | “大学生饮食习惯调查”已发布，12 题，无错误无警告，覆盖四种题型和三类跳转 | 通过 | `test_seed_demo.py::test_seed_creates_published_demo_survey`、`test_seed_covers_types_jumps_and_validations` |
 | J2 | 不同路径的答卷 | 同上 | — | 13 份答卷、12 位填写人；选“否”的只答第 1 题；各路径符合跳转规则 | 通过 | `test_seed_responses_follow_different_paths` |
 | J3 | 重复运行与重置 | 运行两次；`--reset` | — | 第二次不重复生成；重置只删示例问卷，不碰其他数据 | 通过 | `test_seed_is_idempotent`、`test_seed_reset_recreates`、`test_seed_demo_command_line` |
+| J4 | 固定的访问链接 `Food26` | 生成；重置；把已有示例问卷的链接改成随机值后再运行；`Food26` 被其他问卷占用时运行；脚本与接口指定链接代码 | `Food26`；`Ab12Cd`；`Food2`、`Food_6` 等不合法代码；接口请求带 `shortCode` | 链接固定为 `Food26`，重置后不变；旧的随机链接被改为 `Food26` 且 13 份答卷保留；被占用时报错停止、不新建也不改动；不合法代码 422；重复代码 409 `SHORT_CODE_TAKEN`；接口忽略请求中的 `shortCode`（仍随机生成） | 通过 | `test_seed_demo.py::test_seed_uses_fixed_short_code`、`test_seed_reset_keeps_fixed_short_code`、`test_seed_migrates_old_random_code_and_keeps_responses`、`test_seed_refuses_when_fixed_code_taken`、`test_seed_migration_refuses_when_fixed_code_taken`；`test_surveys.py::test_create_with_fixed_short_code`、`test_create_with_invalid_fixed_short_code`、`test_api_ignores_short_code_field` |
 
 ## 四、基于本人手工创建的问卷的端到端测试
 

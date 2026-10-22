@@ -8,6 +8,10 @@
 直接调用服务层（与网页提交走完全相同的校验、跳转计算和提交策略），不需要先启动服务。
 数据写入 .env 中配置的数据库；问卷链接的前缀来自 PUBLIC_BASE_URL。
 
+示例问卷的链接代码固定为 Food26（访问链接 <PUBLIC_BASE_URL>/survey/Food26），重新生成也不变，
+README 和报告中可以直接写这个链接。已存在的旧示例问卷（随机链接）会被改为 Food26，答卷保留。
+Food26 已被其他问卷占用时报错停止，不会覆盖那份问卷。
+
 问卷设计（2026-10-19 开发者确认，见 AI_LOG 第 27 条）：12 道题覆盖四种题型；
 单选跳转（第 1 题“否”→ 结束问卷；第 4 题“基本不吃”→ 第 6 题；第 5 题 → 第 7 题）、
 多选跳转（第 7 题选了“外卖”→ 第 8 题，否则 → 第 10 题）、数字跳转（第 8 题 ≥ 7 → 第 9 题）；
@@ -31,6 +35,7 @@ from app.services import questions as question_service
 from app.services import surveys as survey_service
 
 DEMO_TITLE = "大学生饮食习惯调查"
+DEMO_SHORT_CODE = "Food26"   # 固定的链接代码（2026-10-22 开发者要求，见 AI_LOG 第 32 条）
 DEMO_DESCRIPTION = "了解在校大学生的一日三餐、外卖和饮食花费情况，结果仅用于课程项目演示。大约需要 2 分钟。"
 OWNER = "demo_owner"
 DEFAULT_PASSWORD = "demo123456"
@@ -96,6 +101,17 @@ def _ensure_user(db: Database, username: str, password: str) -> tuple[ObjectId, 
         return users_repo.find_by_username(db, username)["_id"], False
 
 
+class SeedError(Exception):
+    """无法生成示例数据（如固定链接代码已被其他问卷占用）。"""
+
+
+def _ensure_code_available(db: Database, except_id: ObjectId | None = None) -> None:
+    other = db[SURVEYS].find_one({"shortCode": DEMO_SHORT_CODE, "_id": {"$ne": except_id}})
+    if other:
+        raise SeedError(f"链接代码 {DEMO_SHORT_CODE} 已被另一份问卷《{other['title']}》占用，"
+                        f"为避免覆盖，未做任何修改")
+
+
 def _find_demo_survey(db: Database, owner_id: ObjectId) -> dict | None:
     return db[SURVEYS].find_one({"ownerId": owner_id, "title": DEMO_TITLE})
 
@@ -103,7 +119,7 @@ def _find_demo_survey(db: Database, owner_id: ObjectId) -> dict | None:
 def _build_survey(db: Database, owner_id: ObjectId) -> dict:
     survey = survey_service.create_survey(
         db, owner_id, title=DEMO_TITLE, description=DEMO_DESCRIPTION,
-        allow_anonymous=False, submission_policy="latest", deadline=None)
+        allow_anonymous=False, submission_policy="latest", deadline=None, short_code=DEMO_SHORT_CODE)
     sid = str(survey["_id"])
     for qtype, title, options, validation in QUESTIONS:
         survey = question_service.add_question(
@@ -161,8 +177,17 @@ def seed(db: Database, *, reset: bool = False, owner_password: str = DEFAULT_PAS
         db[SURVEYS].delete_one({"_id": existing["_id"]})
         existing = None
 
+    old_code = None
+    if existing and existing["shortCode"] != DEMO_SHORT_CODE:
+        # 旧版本脚本生成的示例问卷使用随机链接：改为固定值，答卷保留
+        _ensure_code_available(db, except_id=existing["_id"])
+        old_code = existing["shortCode"]
+        db[SURVEYS].update_one({"_id": existing["_id"]}, {"$set": {"shortCode": DEMO_SHORT_CODE}})
+        existing = db[SURVEYS].find_one({"_id": existing["_id"]})
+
     created = existing is None
     if created:
+        _ensure_code_available(db)
         survey = _build_survey(db, owner_id)
         user_ids = {name: _ensure_user(db, name, respondent_password)[0] for name in RESPONDENTS}
         for name in RESPONDENTS:
@@ -175,6 +200,7 @@ def seed(db: Database, *, reset: bool = False, owner_password: str = DEFAULT_PAS
     return {
         "created": created,
         "owner_created": owner_created,
+        "old_short_code": old_code,          # 本次由随机链接改为固定链接时，原来的链接代码
         "survey_id": str(survey["_id"]),
         "short_code": survey["shortCode"],
         "url": f"{get_settings().public_base_url}/survey/{survey['shortCode']}",
@@ -190,8 +216,13 @@ def main() -> None:
                         help=f"创建者 {OWNER} 的密码（仅在账号不存在时使用；部署到服务器时请指定）")
     args = parser.parse_args()
 
-    result = seed(get_db(), reset=args.reset, owner_password=args.owner_password)
+    try:
+        result = seed(get_db(), reset=args.reset, owner_password=args.owner_password)
+    except SeedError as e:
+        raise SystemExit(f"无法生成示例问卷：{e}")
     print("已生成示例问卷" if result["created"] else "示例问卷已存在，未重复生成（使用 --reset 可重新生成）")
+    if result["old_short_code"]:
+        print(f"  已把示例问卷的链接由 {result['old_short_code']} 改为固定的 {DEMO_SHORT_CODE}（答卷保留）")
     print(f"  问卷：{DEMO_TITLE}（已发布，实名，可以重填、以最后一次为准，不限截止时间）")
     print(f"  链接：{result['url']}")
     print(f"  答卷：{result['responses']} 份，填写人 {result['respondents']} 位")
